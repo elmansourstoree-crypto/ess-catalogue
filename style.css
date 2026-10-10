@@ -1,0 +1,138 @@
+:root{
+  --navy:#1a2f4f; --navy2:#24406b; --or:#c6a04a; --or2:#e0be6a;
+  --fond:#f4f6fa; --carte:#ffffff; --texte:#182233; --gris:#68707e;
+  --vert:#1e8e4e; --rouge:#c0392b;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{margin:0; padding:0; background:var(--fond); color:var(--texte);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; font-size:16px}
+button{font:inherit; cursor:pointer}
+.topbar{position:sticky; top:0; z-index:20; display:flex; align-items:center; gap:10px;
+  background:linear-gradient(135deg,var(--navy),var(--navy2)); color:#fff;
+  padding:10px 14px; padding-top:max(10px,env(safe-area-inset-top)); box-shadow:0 2px 8px rgba(10,20,40,.25)}
+.topbar .logo{width:40px; height:40px; border-radius:9px; background:#fff; padding:3px}
+.topbar h1{margin:0; font-size:19px; letter-spacing:.4px}
+.topbar span{display:block; font-size:11px; color:var(--or2)}
+.titres{flex:1; min-width:0}
+.iconbtn{border:0; background:rgba(255,255,255,.14); color:#fff; width:40px; height:40px;
+  border-radius:10px; font-size:18px; display:grid; place-items:center; position:relative}
+.pastille{position:absolute; top:-5px; right:-5px; min-width:19px; height:19px; padding:0 4px;
+  background:var(--or); color:#241c07; border-radius:999px; font-size:11px; font-weight:800;
+  display:none; place-items:center; align-content:center}
+body.client #btnAdmin{display:none}
+.ancien{color:var(--gris); font-weight:600; font-size:.8em; text-decoration:line-through}
+.badge.promo{background:#fdecea; color:var(--rouge)}
+.ligne{display:flex; align-items:center; gap:9px; padding:7px 0; border-bottom:1px solid #eef1f5}
+.ligne img{width:52px; height:52px; border-radius:9px; object-fit:cover; background:#fff}
+.linfo{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px}
+.ln{font-size:13px; font-weight:600; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+.lp{font-size:12.5px; color:var(--navy); font-weight:700}
+.lqte{display:flex; align-items:center; gap:7px}
+.lqte button{width:30px; height:30px; border:1px solid #d6dbe4; background:#fff; border-radius:8px; font-size:16px; font-weight:800; color:var(--navy)}
+.lqte span{min-width:20px; text-align:center; font-weight:700}
+.ldel{border:0; background:none; font-size:16px; padding:4px}
+.total{font-size:15px; color:var(--gris); padding:4px 2px}
+.total b{color:var(--navy); font-size:18px}
+#fQte{width:74px; border:1px solid #d6dbe4; border-radius:12px; padding:10px; font-size:16px; text-align:center}
+.recherche{position:sticky; top:60px; z-index:19; display:flex; gap:8px; padding:10px 12px; background:var(--fond)}
+.recherche input{flex:1; min-width:0; border:1px solid #d6dbe4; border-radius:12px; padding:11px 14px;
+  font-size:16px; background:#fff; outline-color:var(--or)}
+.recherche select{border:1px solid #d6dbe4; border-radius:12px; padding:8px; background:#fff; font-size:14px}
+.chips{display:flex; gap:8px; overflow-x:auto; padding:0 12px 10px; scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{border:1px solid #d6dbe4; background:#fff; color:var(--navy); border-radius:999px;
+  padding:7px 13px; font-size:13px; white-space:nowrap}
+.chip.on{background:var(--navy); color:#fff; border-color:var(--navy)}
+.compteur{padding:2px 14px 8px; color:var(--gris); font-size:13px}
+.grille{display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; padding:0 12px 90px}
+.carte{background:var(--carte); border-radius:14px; overflow:hidden; box-shadow:0 1px 4px rgba(20,30,50,.10);
+  display:flex; flex-direction:column; border:0; padding:0; text-align:left}
+.carte img{width:100%; aspect-ratio:1; object-fit:cover; background:#fff}
+.crayon{position:absolute; right:6px; top:6px; border:0; border-radius:9px; width:34px; height:34px;
+  background:rgba(26,47,79,.85); font-size:15px; display:grid; place-items:center}
+.carte .c{padding:9px 10px 11px; display:flex; flex-direction:column; gap:4px; flex:1}
+.carte .n{font-size:13.5px; font-weight:600; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+.carte .p{color:var(--navy); font-weight:800; font-size:15px}
+.carte .p small{font-weight:600; color:var(--gris)}
+.carte .s{font-size:11px; color:var(--vert); font-weight:600}
+.carte .s.non{color:var(--rouge)}
+.fin{text-align:center; color:var(--gris); padding:10px 0 40px; font-size:13px}
+.fiche{position:fixed; inset:0; z-index:30; background:var(--fond); overflow-y:auto; padding-bottom:40px}
+.fiche-tete{position:sticky; top:0; display:flex; gap:10px; align-items:center;
+  background:var(--navy); color:#fff; padding:12px 14px}
+.fiche-tete h2{margin:0; font-size:16px; flex:1; line-height:1.3}
+.fiche-tete .iconbtn{background:rgba(255,255,255,.16)}
+.fiche-corps{padding:14px}
+.fiche-corps img.gd{width:100%; border-radius:16px; background:#fff; box-shadow:0 2px 10px rgba(20,30,50,.12)}
+.prixgd{font-size:26px; font-weight:900; color:var(--navy); margin:12px 0 2px}
+.prixgd small{font-size:14px; color:var(--gris); font-weight:600}
+.badge{display:inline-block; border-radius:999px; padding:5px 12px; font-size:12.5px; font-weight:700; margin:6px 6px 0 0}
+.badge.vert{background:#e3f5ea; color:var(--vert)} .badge.rouge{background:#fbe9e7; color:var(--rouge)}
+.badge.gris{background:#eceff3; color:var(--gris)} .badge.or{background:#f7eeda; color:#8a6d2f}
+.bloc{background:#fff; border-radius:14px; padding:12px 14px; margin-top:12px; box-shadow:0 1px 4px rgba(20,30,50,.08)}
+.bloc h3{margin:0 0 6px; font-size:13px; text-transform:uppercase; letter-spacing:.6px; color:var(--or); }
+.bloc p{margin:0; font-size:14.5px; line-height:1.55}
+.rangeeBtns{display:flex; gap:10px; margin-top:14px}
+.btn{border:0; border-radius:12px; padding:12px 16px; font-weight:700; background:var(--navy); color:#fff; flex:1}
+.btn.vert{background:var(--vert)} .btn.rouge{background:var(--rouge)} .btn.or{background:var(--or); color:#241c07}
+.btn.wave{background:#00b8f0; color:#00202e}
+.chips + .chips{padding-top:0}
+.chip.f{background:#eaf0f9; border-color:#c3d2e8; font-size:12.5px; padding:5px 11px}
+.chip.f.on{background:var(--or); color:#241c07; border-color:var(--or)}
+.carte .fr{font-size:10.5px; font-weight:700; color:var(--gris); letter-spacing:.2px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.sync{border:0; background:none; font-size:17px; padding:2px 3px; line-height:1}
+.sync.err{filter:grayscale(1); opacity:.55}
+.sync.encours{opacity:.65}
+.panneau{position:fixed; inset:auto 0 0 0; z-index:40; background:#fff; border-radius:20px 20px 0 0;
+  box-shadow:0 -6px 30px rgba(10,20,40,.25); max-height:88vh; overflow-y:auto;
+  padding-bottom:max(16px,env(safe-area-inset-bottom))}
+.panneau-tete{display:flex; align-items:center; justify-content:space-between; padding:14px 16px 6px;
+  position:sticky; top:0; background:#fff}
+.panneau-tete h2{margin:0; font-size:17px; color:var(--navy)}
+.panneau-tete .iconbtn{background:#eceff3; color:var(--navy)}
+.panneau-corps{padding:6px 16px 20px; display:flex; flex-direction:column; gap:12px}
+.panneau-corps label{display:flex; flex-direction:column; gap:5px; font-size:13px; font-weight:700; color:var(--gris)}
+.panneau-corps input,.panneau-corps select{border:1px solid #d6dbe4; border-radius:11px; padding:11px 12px; font-size:16px; background:#fff}
+.aide{margin:0; font-size:13.5px; line-height:1.5; color:var(--gris)}
+.etat{margin:0; font-size:13px; color:var(--vert); font-weight:600; min-height:18px}
+.rangee{display:flex; gap:10px}
+.band{position:fixed; left:12px; right:12px; bottom:14px; z-index:50; display:flex; align-items:center; gap:10px;
+  background:var(--navy); color:#fff; border-radius:14px; padding:10px 12px; box-shadow:0 6px 24px rgba(10,20,40,.35); font-size:14px}
+.band .btn{flex:0 0 auto; padding:9px 14px}
+@media (min-width:700px){ .grille{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))} }
+/* ---------- stats & journal ---------- */
+.stats{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+.stat{background:var(--fond); border-radius:12px; padding:9px 11px}
+.stat b{display:block; font-size:16px; color:var(--navy)}
+.stat span{font-size:11.5px; color:var(--gris)}
+.jrow{display:flex; justify-content:space-between; gap:8px; padding:8px 2px; border-bottom:1px solid #eef1f5; font-size:13.5px}
+.jrow .jd{color:var(--gris); font-size:12px}
+.jrow b{color:var(--navy)}
+.tag{border-radius:6px; padding:1px 7px; font-size:11px; font-weight:800}
+.tag.f{background:#e3f5ea; color:var(--vert)} .tag.d{background:#f7eeda; color:#8a6d2f}
+/* ---------- impression (devis / facture) ---------- */
+#docPrint{display:none}
+@media print{
+  body>*{display:none !important}
+  #docPrint{display:block !important}
+  body{background:#fff}
+}
+#docPrint{font-family:Arial,Helvetica,sans-serif; color:#111; padding:26px; font-size:12.5px}
+#docPrint .entete{display:flex; gap:14px; align-items:flex-start; border-bottom:3px solid #1a2f4f; padding-bottom:12px}
+#docPrint .entete img{width:74px; height:74px; border-radius:12px}
+#docPrint .entete h1{margin:0; font-size:19px; color:#1a2f4f; letter-spacing:.5px}
+#docPrint .entete p{margin:2px 0; font-size:11px; color:#444}
+#docPrint .titre{margin:16px 0 4px; font-size:17px; font-weight:800; color:#1a2f4f}
+#docPrint .meta{display:flex; justify-content:space-between; gap:12px; margin:8px 0 14px; font-size:12px}
+#docPrint .meta div{background:#f4f6fa; border-radius:8px; padding:8px 12px; flex:1}
+#docPrint table{width:100%; border-collapse:collapse; margin-top:6px}
+#docPrint th{background:#1a2f4f; color:#fff; padding:7px 8px; text-align:left; font-size:11px; letter-spacing:.4px}
+#docPrint td{padding:7px 8px; border-bottom:1px solid #e3e7ee; font-size:12px; vertical-align:top}
+#docPrint td.n{text-align:right; white-space:nowrap}
+#docPrint th.n{text-align:right}
+#docPrint .totaux{margin-left:auto; width:250px; margin-top:10px}
+#docPrint .totaux div{display:flex; justify-content:space-between; padding:5px 10px; font-size:12.5px}
+#docPrint .totaux .tt{background:#1a2f4f; color:#fff; font-weight:800; border-radius:6px; font-size:14px}
+#docPrint .pied{margin-top:22px; border-top:1px solid #ccd3dd; padding-top:10px; font-size:10px; color:#555; line-height:1.6}
+#docPrint .merci{margin-top:10px; font-weight:700; color:#1a2f4f}

@@ -1,0 +1,494 @@
+/* ESS Catalogue v2 — PWA : catalogue + gestion + panier + commande WhatsApp + promos + mode client */
+const $ = s => document.querySelector(s);
+const fmt = n => n == null ? null : n.toLocaleString('fr-FR').replace(/\u202f/g, ' ') + ' FCFA';
+const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const esc = s => (s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+const DEFAULT_WA = '221777477778';
+const DEFAULT_WAVE = 'https://pay.wave.com/m/M_sn__kJhIPEZIYZA/c/sn/';
+const SB = { url: 'https://vitqwefhyywvhdcspeuo.supabase.co',
+  key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpdHF3ZWZoeXl3dmhkY3NwZXVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1ODUyMjMsImV4cCI6MjEwNzE2MTIyM30.fcMZ18-933YuvBSMi0MYTw6tuDm5_M-8yMdzJh5pfvk' };
+let BASE = [], EDITS = {}, DELS = [], NEWS = [], CART = {}, WA = DEFAULT_WA, WAVE = DEFAULT_WAVE;
+let vue = { q: '', cat: '', stock: '', fourn: '', haut: false, liste: [], offset: 0 };
+let admin = false, client = false, refCourante = null, deferredPrompt = null;
+const PAS = 48;
+
+const charge = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+const sauve = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+const imgSrc = p => p.img.startsWith('data:') ? p.img : 'images/' + p.img;
+
+function produits() {
+  const map = new Map();
+  for (const p of BASE) map.set(p.ref, Object.assign({}, p));
+  for (const p of NEWS) map.set(p.ref, Object.assign({}, p));
+  for (const [ref, e] of Object.entries(EDITS)) if (map.has(ref)) Object.assign(map.get(ref), e);
+  for (const r of DELS) map.delete(r);
+  for (const [ref, e] of Object.entries(EDITS)) if (map.has(ref)) IDX.set(ref, cle(map.get(ref)));
+  return [...map.values()];
+}
+const prixDe = p => (p.promo ? p.promo : p.prix);
+const cle = p => norm([p.nom, p.ref, p.cat, p.fourn, p.marque, p.rf].filter(Boolean).join(' '));
+let IDX = new Map();
+function indexe() {
+  IDX = new Map();
+  for (const p of BASE) IDX.set(p.ref, cle(p));
+  for (const p of NEWS) IDX.set(p.ref, cle(p));
+  for (const [ref, e] of Object.entries(EDITS)) { const b = BASE.concat(NEWS).find(x => x.ref === ref);
+    if (b) IDX.set(ref, cle(Object.assign({}, b, e))); }
+}
+
+function filtres() {
+  let l = produits();
+  if (vue.cat) l = l.filter(p => p.cat.split(' | ')[0] === vue.cat);
+  if (vue.fourn) l = l.filter(p => p.fourn === vue.fourn);
+  if (vue.stock) l = l.filter(p => p.stock === vue.stock);
+  if (vue.haut) { const vus = new Set();
+    l = l.filter(p => { if (!p.grp) return true; if (p.prix !== p.maxg) return false;
+      if (vus.has(p.grp)) return false; vus.add(p.grp); return true; }); }
+  if (vue.q) { const q = norm(vue.q); l = l.filter(p => (IDX.get(p.ref) || cle(p)).includes(q)); }
+  l.sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+  return l;
+}
+
+/* ---------- liste ---------- */
+function carteHTML(p) {
+  const pv = prixDe(p);
+  const prix = pv != null ? fmt(pv) : (p.pinfo || 'Sur demande');
+  const promo = p.promo && p.prix ? `<s class="ancien">${fmt(p.prix)}</s> <span class="badge promo">PROMO</span>` : '';
+  const stock = client ? '' : (p.qte != null && p.qte !== '' ? `<span class="s ${+p.qte > 0 ? '' : 'non'}">● Stock : ${p.qte}</span>` : p.stock === 'oui' ? '<span class="s">● En stock</span>' : p.stock === 'non' ? '<span class="s non">● Épuisé</span>' : '');
+  const crayon = admin ? `<button class="crayon" data-ed="${p.ref}" aria-label="Modifier">✏️</button>` : '';
+  return `<button class="carte" data-ref="${p.ref}">
+    <div style="position:relative"><img loading="lazy" src="${imgSrc(p)}" alt="">${crayon}</div>
+    <div class="c"><span class="n">${esc(p.nom)}</span><span class="p">${esc(prix)} ${promo}</span>${stock}${p.fourn ? `<span class="fr">${esc(p.fourn)}${p.marque ? ' · ' + esc(p.marque) : ''}</span>` : ''}</div></button>`;
+}
+function renduChips() {
+  const P = produits(); const cc = {}, fc = {};
+  for (const p of P) { const c = p.cat.split(' | ')[0]; cc[c] = (cc[c] || 0) + 1; fc[p.fourn] = (fc[p.fourn] || 0) + 1; }
+  const cats = Object.entries(cc).sort((a, b) => b[1] - a[1]);
+  $('#chips').innerHTML = `<button class="chip ${vue.cat ? '' : 'on'}" data-cat="">Tout (${P.length})</button>` +
+    cats.map(([c, n]) => `<button class="chip ${vue.cat === c ? 'on' : ''}" data-cat="${esc(c)}">${esc(c)} (${n})</button>`).join('');
+  const fs = Object.entries(fc).sort((a, b) => b[1] - a[1]);
+  $('#chipsF').innerHTML = `<button class="chip f ${vue.fourn ? '' : 'on'}" data-f="">Tous fournisseurs</button>` +
+    fs.map(([f, n]) => `<button class="chip f ${vue.fourn === f ? 'on' : ''}" data-f="${esc(f)}">${esc(f)} (${n})</button>`).join('') +
+    `<button class="chip f ${vue.haut ? 'on' : ''}" data-haut="1" title="Une seule fiche par produit : celle du prix le plus élevé">⚖️ Prix le + élevé</button>`;
+}
+function renduListe(reset) {
+  if (reset) { vue.liste = filtres(); vue.offset = 0; $('#grille').innerHTML = ''; }
+  $('#grille').insertAdjacentHTML('beforeend', vue.liste.slice(vue.offset, vue.offset + PAS).map(carteHTML).join(''));
+  vue.offset = Math.min(vue.offset + PAS, vue.liste.length);
+  $('#compteur').textContent = `${vue.liste.length} article${vue.liste.length > 1 ? 's' : ''}` +
+    (vue.q ? ` pour « ${vue.q} »` : '') + (vue.cat ? ` · ${vue.cat}` : '') +
+    (vue.fourn ? ` · ${vue.fourn}` : '') + (vue.haut ? ' · prix le + élevé' : '');
+  $('#fin').hidden = vue.offset < vue.liste.length;
+}
+
+/* ---------- fiche ---------- */
+function ouvreFiche(ref) {
+  const p = produits().find(x => x.ref === ref); if (!p) return;
+  refCourante = ref;
+  $('#fNom').textContent = p.nom;
+  const pv = prixDe(p);
+  const prix = pv != null ? fmt(pv) : (p.pinfo || 'Sur demande');
+  const promo = p.promo && p.prix ? `<div class="prixgd" style="margin-top:0"><s class="ancien">${fmt(p.prix)}</s> <span class="badge promo">PROMO</span></div>` : '';
+  const badges = [
+    !client && p.stock === 'oui' ? '<span class="badge vert">En stock</span>' : !client && p.stock === 'non' ? '<span class="badge rouge">Épuisé</span>' : '',
+    `<span class="badge or">${esc(p.cat.split(' | ')[0])}</span>`,
+    p.marque ? `<span class="badge or">${esc(p.marque)}</span>` : '',
+    !client && p.fourn ? `<span class="badge gris">${esc(p.fourn)}</span>` : '',
+    `<span class="badge gris">${esc(p.ref)}</span>`].join('');
+  $('#fCorps').innerHTML = `
+    <img class="gd" src="${imgSrc(p)}" alt="${esc(p.nom)}">
+    ${promo}
+    <div class="prixgd">${esc(prix)}</div>
+    <div>${badges}</div>
+    ${admin && p.achat && pv != null ? `<div class="bloc"><h3>Marge (gestion)</h3><p>Prix d'achat : ${fmt(p.achat)} · Marge : <b>${fmt(pv - p.achat)}</b> (${p.achat ? Math.round((pv - p.achat) / p.achat * 100) : 0} %)</p></div>` : ''}
+    ${!client && p.alt ? `<div class="bloc"><h3>⚖️ Autres fournisseurs (même modèle)</h3><p>${esc(p.alt)}</p>${admin && p.achat ? `<p style="margin-top:6px">Prix d'achat conseillé (le moins cher) : <b>${fmt(p.achat)}</b></p>` : ''}</div>` : ''}
+    ${p.dim ? `<div class="bloc"><h3>Dimensions</h3><p>${esc(p.dim)}</p></div>` : ''}
+    ${p.desc ? `<div class="bloc"><h3>Description</h3><p>${esc(p.desc)}</p></div>` : ''}
+    <div class="rangeeBtns">
+      <input id="fQte" type="number" min="1" value="1" inputmode="numeric" aria-label="Quantité">
+      <button class="btn vert" id="btnAjoutPanier">🛒 Ajouter</button>
+    </div>
+    <div class="rangeeBtns">
+      <button class="btn" id="btnPartager">📤 Partager</button>
+      ${admin ? '<button class="btn or" id="btnEdFiche">✏️ Modifier</button>' : ''}
+    </div>`;
+  $('#fiche').hidden = false; window.scrollTo(0, 0);
+  $('#btnAjoutPanier').onclick = () => {
+    const q = Math.max(1, +$('#fQte').value || 1);
+    CART[ref] = (CART[ref] || 0) + q; sauve('ess_cart_v1', CART); majBadge();
+    $('#btnAjoutPanier').textContent = `✔ ${q} ajouté${q > 1 ? 's' : ''}`;
+    setTimeout(() => { $('#btnAjoutPanier').textContent = '🛒 Ajouter'; }, 1200);
+  };
+  $('#btnPartager').onclick = () => {
+    const txt = `*${p.nom}* — ${prix}\nESS · Elmansour Supplies & Services (réf. ${p.ref})\nKeur Massar Nord, Dakar · +221 77 747 77 78`;
+    if (navigator.share) navigator.share({ text: txt }).catch(() => {});
+    else location.href = 'https://wa.me/?text=' + encodeURIComponent(txt);
+  };
+  const be = $('#btnEdFiche'); if (be) be.onclick = () => ouvreEdition(ref);
+}
+
+/* ---------- panier & commande WhatsApp ---------- */
+function majBadge() {
+  const n = Object.values(CART).reduce((a, b) => a + b, 0);
+  const el = $('#cartCount'); el.textContent = n; el.style.display = n ? 'grid' : 'none';
+}
+function renduPanier() {
+  const refs = Object.keys(CART);
+  if (!refs.length) { $('#panierListe').innerHTML = '<p class="aide">Panier vide. Ajoutez des articles avec le bouton 🛒 des fiches produits.</p>'; }
+  else {
+    const P = new Map(produits().map(p => [p.ref, p]));
+    $('#panierListe').innerHTML = refs.map(r => {
+      const p = P.get(r); if (!p) return '';
+      const pv = prixDe(p);
+      return `<div class="ligne">
+        <img src="${imgSrc(p)}" alt="">
+        <div class="linfo"><span class="ln">${esc(p.nom)}</span><span class="lp">${pv != null ? fmt(pv) : 'Sur demande'}</span></div>
+        <div class="lqte"><button data-m="${r}">−</button><span>${CART[r]}</span><button data-p="${r}">+</button></div>
+        <button class="ldel" data-x="${r}">🗑</button></div>`;
+    }).join('');
+  }
+  const tot = Object.entries(CART).reduce((s, [r, q]) => {
+    const p = produits().find(x => x.ref === r); return s + (p && prixDe(p) ? prixDe(p) * q : 0); }, 0);
+  $('#panierTotal').innerHTML = `Total : <b>${fmt(tot)}</b>` + (tot ? '' : ' — les articles « sur demande » seront chiffrés par ESS');
+}
+function commandeWhatsApp() {
+  const P = new Map(produits().map(p => [p.ref, p]));
+  const lignes = Object.entries(CART).map(([r, q]) => {
+    const p = P.get(r); if (!p) return null;
+    const pv = prixDe(p);
+    return `• ${q} × ${p.nom} (${r}) — ${pv != null ? fmt(pv * q) : 'prix sur demande'}`;
+  }).filter(Boolean);
+  if (!lignes.length) return;
+  const tot = Object.entries(CART).reduce((s, [r, q]) => { const p = P.get(r); return s + (p && prixDe(p) ? prixDe(p) * q : 0); }, 0);
+  const nom = $('#nomClient').value.trim();
+  const msg = `Bonjour ESS,${nom ? ` je suis ${nom}.` : ''} Je souhaite commander :\n${lignes.join('\n')}\n` +
+    `*TOTAL : ${fmt(tot)}*${tot ? '' : ' (à chiffrer)'}\nMerci !`;
+  window.open(`https://wa.me/${WA}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+/* ---------- gestion ---------- */
+function ouvreEdition(ref) {
+  const p = ref ? produits().find(x => x.ref === ref) : null;
+  refCourante = ref || null;
+  $('#edTitre').textContent = p ? 'Modifier ' + p.ref : 'Nouveau produit';
+  $('#edNom').value = p ? p.nom : ''; $('#edCat').value = p ? p.cat : '';
+  $('#edPrix').value = p && p.prix ? p.prix : ''; $('#edPromo').value = p && p.promo ? p.promo : '';
+  $('#edAchat').value = p && p.achat ? p.achat : ''; $('#edQte').value = p && p.qte != null && p.qte !== '' ? p.qte : '';
+  $('#edStock').value = p ? p.stock : 'oui';
+  $('#edPhoto').value = ''; $('#btnSupprimer').style.display = p ? '' : 'none';
+  $('#edition').hidden = false;
+}
+function photoVersData(file, cb) {
+  const rd = new FileReader();
+  rd.onload = () => { const im = new Image(); im.onload = () => {
+    const c = document.createElement('canvas'); const k = 640 / Math.max(im.width, im.height);
+    c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+    c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+    cb(c.toDataURL('image/jpeg', 0.72)); }; im.src = rd.result; };
+  rd.readAsDataURL(file);
+}
+function exportCSV() {
+  const l = produits();
+  const tete = 'ref,nom_produit,categorie,fournisseur,marque,ref_fournisseur,prix_fcfa,prix_promo,prix_achat,stock_qte,prix_info,dimensions,description,en_stock,image';
+  const q = v => /[",;\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  const lignes = l.map(p => [p.ref, p.nom, p.cat, p.fourn ?? '', p.marque ?? '', p.rf ?? '', p.prix ?? '', p.promo ?? '', p.achat ?? '', p.qte ?? '', p.pinfo, p.dim, p.desc, p.stock,
+    p.img.startsWith('data:') ? p.ref + '_nouveau.jpg' : p.img].map(v => q(String(v ?? ''))).join(','));
+  const blob = new Blob(['\ufeff' + tete + '\n' + lignes.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const nom = `ESS_catalogue_maj_${new Date().toISOString().slice(0, 10)}.csv`;
+  Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: nom }).click();
+  if (navigator.share) navigator.share({ files: [new File([blob], nom, { type: 'text/csv' })], title: 'Catalogue ESS' }).catch(() => {});
+  $('#adminEtat').textContent = `✔ ${l.length} lignes exportées (${nom})`;
+}
+function majEtat() {
+  const n = Object.keys(EDITS).length + NEWS.length + DELS.length;
+  $('#adminEtat').textContent = admin ? `${n} modification${n > 1 ? 's' : ''} locale${n > 1 ? 's' : ''} sur cet appareil` : '';
+}
+
+/* ---------- devis / factures / journal ---------- */
+const ESS = {
+  nom: 'ELMANSOUR SUPPLIES & SERVICES (E.S.S.)', act: 'Fournitures & Services',
+  adr: 'Keur Massar Nord, QRT Parcelles Assainies — U.03 Villa N°99, Dakar, Sénégal',
+  siege: 'Siège social : Dakar Plateau', rccm: 'RCCM : SN.DKR.2024.A.42510 — NINEA : 011629154',
+  tel: '+221 77 747 77 78 / +221 76 667 01 10',
+  banque: 'Banque : BIS — Banque Islamique du Sénégal · IBAN : SN08 SN07 9011 2425 3187 7910 0141 · SWIFT : ISSNSNDA' };
+let VENTES = [], LOGO_B64 = null, docNum = null;
+
+function docDonnees() {
+  const P = new Map(produits().map(p => [p.ref, p]));
+  const lines = Object.entries(CART).map(([r, q]) => { const p = P.get(r); if (!p) return null;
+    return { ref: r, nom: p.nom, q, pu: prixDe(p), achat: p.achat || null }; }).filter(Boolean);
+  const total = lines.reduce((s, l) => s + (l.pu ? l.pu * l.q : 0), 0);
+  const marge = lines.reduce((s, l) => s + (l.pu && l.achat ? (l.pu - l.achat) * l.q : 0), 0);
+  return { lines, total, marge };
+}
+function getNum() {
+  if (!docNum) { const type = $('#docType').value;
+    const c = charge('ess_docnum_v1', { fac: 0, dev: 0 }); const k = type === 'facture' ? 'fac' : 'dev';
+    c[k] += 1; sauve('ess_docnum_v1', c); pousse('cfg:docnum', 'cfg', c);
+    docNum = (type === 'facture' ? 'FAC-' : 'DEV-') + '2026-' + String(c[k]).padStart(4, '0'); }
+  return docNum;
+}
+function remplisDoc() {
+  const d = docDonnees(), num = getNum(), type = $('#docType').value;
+  const auj = new Date().toLocaleDateString('fr-FR');
+  $('#docPrint').innerHTML = `
+    <div class="entete"><img src="img/icon-512.png" alt="ESS">
+      <div><h1>ELMANSOUR SUPPLIES &amp; SERVICES</h1>
+      <p>(E.S.S.) — ${ESS.act}</p><p>${ESS.adr}</p><p>Tél. : ${ESS.tel}</p></div></div>
+    <div class="titre">${type === 'facture' ? 'FACTURE' : 'DEVIS'} N° ${num}</div>
+    <div class="meta"><div><b>Date d'émission</b><br>${auj}</div>
+      <div><b>Mode de paiement</b><br>${esc($('#docPaiement').value)}</div>
+      <div><b>Facturé à / Client</b><br>${esc($('#docClient').value.trim() || 'Client de passage')}</div></div>
+    <table><tr><th>N°</th><th>Désignation</th><th class="n">Qté</th><th class="n">Prix unit.</th><th class="n">Montant (FCFA)</th></tr>
+    ${d.lines.map((l, i) => `<tr><td>${i + 1}</td><td>${esc(l.nom)} <small>(${l.ref})</small></td><td class="n">${l.q}</td>
+      <td class="n">${l.pu ? l.pu.toLocaleString('fr-FR') : 'sur demande'}</td><td class="n">${l.pu ? (l.pu * l.q).toLocaleString('fr-FR') : '—'}</td></tr>`).join('')}</table>
+    <div class="totaux"><div><span>Sous-total</span><span>${fmt(d.total)}</span></div>
+      <div class="tt"><span>TOTAL TTC</span><span>${fmt(d.total)}</span></div></div>
+    <p class="merci">Merci de votre confiance !</p>
+    <div class="pied">${ESS.nom} — ${ESS.rccm}<br>${ESS.adr} • ${ESS.siege}<br>${ESS.banque}<br>🌊 Paiement mobile Wave : ${esc(WAVE)}</div>`;
+}
+function pdfDoc() {
+  const d = docDonnees(), num = getNum(), type = $('#docType').value;
+  const { jsPDF } = window.jspdf; const doc = new jsPDF({ unit: 'mm', format: 'a4' }); const W = 210;
+  if (LOGO_B64) doc.addImage(LOGO_B64, 'PNG', 14, 10, 20, 20);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(26, 47, 79);
+  doc.text('ELMANSOUR SUPPLIES & SERVICES', 38, 17);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(70, 70, 70);
+  doc.text('(E.S.S.) — ' + ESS.act, 38, 22); doc.text(ESS.adr, 38, 26.5); doc.text('Tel : ' + ESS.tel, 38, 31);
+  doc.setDrawColor(26, 47, 79); doc.setLineWidth(0.8); doc.line(14, 35, W - 14, 35);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(26, 47, 79);
+  doc.text(type === 'facture' ? 'FACTURE' : 'DEVIS', 14, 45);
+  doc.setFontSize(10); doc.setTextColor(20, 20, 20); doc.setFont('helvetica', 'normal');
+  doc.text('N° ' + num, 14, 51); doc.text('Date : ' + new Date().toLocaleDateString('fr-FR'), 14, 56);
+  doc.text('Mode de paiement : ' + $('#docPaiement').value, 14, 61);
+  doc.setFillColor(244, 246, 250); doc.roundedRect(W - 104, 42, 90, 20, 2, 2, 'F');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.text('FACTURE A / CLIENT', W - 100, 48);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+  doc.text(doc.splitTextToSize($('#docClient').value.trim() || 'Client de passage', 82), W - 100, 54);
+  let y = 74;
+  doc.setFillColor(26, 47, 79); doc.rect(14, y - 6, W - 28, 8, 'F');
+  doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
+  doc.text('DESIGNATION', 16, y - 1); doc.text('QTE', 122, y - 1, { align: 'right' });
+  doc.text('PRIX UNIT.', 152, y - 1, { align: 'right' }); doc.text('MONTANT (FCFA)', W - 16, y - 1, { align: 'right' });
+  y += 5; doc.setTextColor(20, 20, 20); doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+  for (const l of d.lines) {
+    const t = doc.splitTextToSize(l.nom + ' (' + l.ref + ')', 98); const h = Math.max(t.length * 4.2, 6);
+    if (y + h > 255) { doc.addPage(); y = 20; }
+    doc.text(t, 16, y); doc.text(String(l.q), 122, y, { align: 'right' });
+    doc.text(l.pu ? l.pu.toLocaleString('fr-FR') : 'sur demande', 152, y, { align: 'right' });
+    doc.text(l.pu ? (l.pu * l.q).toLocaleString('fr-FR') : '-', W - 16, y, { align: 'right' });
+    y += h + 1.5; doc.setDrawColor(225, 229, 236); doc.line(14, y - 1, W - 14, y - 1);
+  }
+  y += 4; doc.setFillColor(26, 47, 79); doc.roundedRect(W - 74, y, 60, 10, 2, 2, 'F');
+  doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+  doc.text('TOTAL TTC', W - 72, y + 6.6); doc.text(fmt(d.total) || '', W - 16, y + 6.6, { align: 'right' });
+  y += 16; doc.setTextColor(60, 60, 60); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+  doc.text('Arrêtée la présente ' + (type === 'facture' ? 'facture' : 'offre') + ' à la somme indiquée ci-dessus, en francs CFA.', 14, y);
+  doc.setDrawColor(200, 206, 216); doc.line(14, 272, W - 14, 272);
+  doc.setFontSize(7.5); doc.setTextColor(90, 90, 90);
+  doc.text(ESS.nom + ' — ' + ESS.rccm, 14, 277);
+  doc.text(ESS.adr + ' • ' + ESS.siege, 14, 281);
+  doc.text(ESS.banque, 14, 285);
+  doc.text('Paiement mobile Wave : ' + WAVE, 14, 289);
+  doc.text('Merci de votre confiance !', 14, 293);
+  return { doc, num };
+}
+function partagePdf() {
+  if (!window.jspdf) { alert('Module PDF non chargé.'); return; }
+  const { doc, num } = pdfDoc(); const blob = doc.output('blob');
+  const f = new File([blob], num + '.pdf', { type: 'application/pdf' });
+  $('#docEtat').textContent = '✔ PDF ' + f.name + ' généré';
+  if (navigator.canShare && navigator.canShare({ files: [f] })) navigator.share({ files: [f], title: 'ESS ' + num }).catch(() => {});
+  else Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: f.name }).click();
+}
+function enregistreVente() {
+  const d = docDonnees(); if (!d.lines.length) return;
+  const type = $('#docType').value, num = getNum();
+  const entree = { id: num, type, date: new Date().toISOString(), client: $('#docClient').value.trim(),
+    paiement: $('#docPaiement').value, total: d.total, marge: d.marge,
+    lignes: d.lines.map(l => ({ ref: l.ref, q: l.q, pu: l.pu })) };
+  VENTES.push(entree);
+  sauve('ess_ventes_v1', VENTES); pousse('vente:' + num, 'vente', entree);
+  if (type === 'facture') {
+    for (const l of d.lines) { const p = produits().find(x => x.ref === l.ref);
+      if (p && p.qte != null && p.qte !== '') { const nq = Math.max(0, +p.qte - l.q);
+        EDITS[l.ref] = Object.assign({}, EDITS[l.ref], { qte: nq, stock: nq > 0 ? (p.stock || 'oui') : 'non' });
+        pousse('edit:' + l.ref, 'edit', EDITS[l.ref]); } }
+    sauve('ess_edits_v1', EDITS); renduChips(); renduListe(true);
+  }
+  $('#docEtat').textContent = '✔ Enregistré : ' + num + (type === 'facture' ? ' (stock mis à jour)' : '');
+  $('#btnEnrVente').disabled = true;
+}
+function renduJournal() {
+  const now = new Date(), aj = now.toISOString().slice(0, 10), mois = aj.slice(0, 7);
+  const s7 = new Date(now - 7 * 864e5).toISOString().slice(0, 10);
+  const f = VENTES.filter(v => v.type === 'facture');
+  const som = l => l.reduce((s, v) => s + (v.total || 0), 0);
+  const mg = l => l.reduce((s, v) => s + (v.marge || 0), 0);
+  $('#jStats').innerHTML = `
+    <div class="stat"><b>${fmt(som(f.filter(v => v.date.slice(0, 10) === aj)))}</b><span>Ventes du jour</span></div>
+    <div class="stat"><b>${fmt(som(f.filter(v => v.date.slice(0, 10) >= s7)))}</b><span>7 derniers jours</span></div>
+    <div class="stat"><b>${fmt(som(f.filter(v => v.date.slice(0, 7) === mois)))}</b><span>Ce mois-ci</span></div>
+    <div class="stat"><b>${fmt(mg(f))}</b><span>Marge cumulée</span></div>`;
+  $('#jListe').innerHTML = VENTES.slice().reverse().slice(0, 40).map(v => `
+    <div class="jrow"><div><span class="tag ${v.type === 'facture' ? 'f' : 'd'}">${v.type === 'facture' ? 'FACT' : 'DEVIS'}</span>
+      <b>${esc(v.id)}</b> · ${esc(v.client || 'client')}<div class="jd">${new Date(v.date).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })} · ${esc(v.paiement)} · ${v.lignes.length} ligne(s)</div></div>
+      <b>${fmt(v.total)}</b></div>`).join('') || '<p class="aide">Aucune vente enregistrée pour le moment.</p>';
+}
+function exportJournal() {
+  const tete = 'numero,date,type,client,paiement,total_fcfa,marge_fcfa,lignes';
+  const q = v => /[",;\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  const lignes = VENTES.map(v => [v.id, v.date, v.type, v.client || '', v.paiement, v.total, v.marge,
+    v.lignes.map(l => `${l.q}x ${l.ref}`).join(' + ')].map(x => q(String(x ?? ''))).join(','));
+  const blob = new Blob(['\ufeff' + tete + '\n' + lignes.join('\n')], { type: 'text/csv;charset=utf-8' });
+  Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `ESS_ventes_${new Date().toISOString().slice(0, 10)}.csv` }).click();
+}
+
+/* ---------- synchronisation cloud (Supabase) ---------- */
+function syncEtat(s) { const el = $('#syncEtat'); if (!el) return;
+  el.className = 'sync ' + s; el.textContent = s === 'err' ? '⛔' : s === 'encours' ? '⌛' : '☁️'; }
+async function sbRows() { const r = await fetch(SB.url + '/rest/v1/sync?select=*&limit=5000',
+  { headers: { apikey: SB.key, Authorization: 'Bearer ' + SB.key } }); if (!r.ok) throw new Error('sb'); return r.json(); }
+async function sbPut(id, kind, data) { const r = await fetch(SB.url + '/rest/v1/sync', { method: 'POST',
+  headers: { apikey: SB.key, Authorization: 'Bearer ' + SB.key, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates' },
+  body: JSON.stringify([{ id, kind, data, updated_at: new Date().toISOString() }]) }); if (!r.ok) throw new Error('sb'); }
+function pousse(id, kind, data) { sbPut(id, kind, data).then(() => syncEtat('ok')).catch(() => syncEtat('err')); }
+function appliqueRow(row) {
+  const ref = row.id.substring(row.kind.length + 1);
+  if (row.kind === 'edit') EDITS[ref] = row.data;
+  else if (row.kind === 'new') { NEWS = NEWS.filter(p => p.ref !== ref); NEWS.push(row.data); }
+  else if (row.kind === 'del') { if (!DELS.includes(ref)) DELS.push(ref); }
+  else if (row.kind === 'vente') { if (!VENTES.some(v => v.id === row.data.id)) VENTES.push(row.data); }
+  else if (row.kind === 'cfg') { if (row.data.wa) WA = row.data.wa; if (row.data.wave) WAVE = row.data.wave;
+    if (row.data.docnum) { const c = charge('ess_docnum_v1', { fac: 0, dev: 0 });
+      c.fac = Math.max(c.fac, row.data.docnum.fac || 0); c.dev = Math.max(c.dev, row.data.docnum.dev || 0);
+      sauve('ess_docnum_v1', c); } }
+}
+let syncEncours = false;
+async function tireSync(silencieux) {
+  if (syncEncours) return; syncEncours = true; if (!silencieux) syncEtat('encours');
+  try {
+    const rows = await sbRows(); rows.forEach(appliqueRow);
+    sauve('ess_edits_v1', EDITS); sauve('ess_del_v1', DELS); sauve('ess_new_v1', NEWS);
+    sauve('ess_ventes_v1', VENTES); sauve('ess_wa_v1', WA); sauve('ess_wave_v1', WAVE);
+    renduChips(); renduListe(true); majBadge(); syncEtat('ok');
+  } catch (e) { syncEtat('err'); }
+  syncEncours = false;
+}
+
+/* ---------- init ---------- */
+async function init() {
+  client = new URLSearchParams(location.search).get('mode') === 'client';
+  if (client) document.body.classList.add('client');
+  BASE = await (await fetch('data/products.json')).json();
+  EDITS = charge('ess_edits_v1', {}); DELS = charge('ess_del_v1', []); NEWS = charge('ess_new_v1', []);
+  CART = charge('ess_cart_v1', {}); WA = charge('ess_wa_v1', DEFAULT_WA); VENTES = charge('ess_ventes_v1', []);
+  WAVE = charge('ess_wave_v1', DEFAULT_WAVE);
+  await tireSync(true);
+  $('#edWa').value = WA; $('#edWave').value = WAVE;
+  fetch('img/icon-512.png').then(r => r.blob()).then(b => new Promise(res => {
+    const rd = new FileReader(); rd.onload = () => res(rd.result); rd.readAsDataURL(b); })).then(d => { LOGO_B64 = d; }).catch(() => {});
+  indexe(); majBadge(); renduChips(); renduListe(true);
+
+  $('#q').addEventListener('input', e => { vue.q = e.target.value.trim(); renduListe(true); });
+  $('#stockFiltre').addEventListener('change', e => { vue.stock = e.target.value; renduListe(true); });
+  $('#chips').addEventListener('click', e => { const c = e.target.closest('.chip'); if (!c) return;
+    vue.cat = c.dataset.cat; renduChips(); renduListe(true); });
+  $('#chipsF').addEventListener('click', e => { const c = e.target.closest('.chip'); if (!c) return;
+    if (c.dataset.haut) vue.haut = !vue.haut; else vue.fourn = c.dataset.f;
+    renduChips(); renduListe(true); });
+  window.addEventListener('scroll', () => {
+    if ($('#fiche').hidden && $('#panier').hidden && window.innerHeight + window.scrollY > document.body.offsetHeight - 700) renduListe(false);
+  });
+  $('#grille').addEventListener('click', e => {
+    const ed = e.target.closest('[data-ed]');
+    if (ed) { e.stopPropagation(); ouvreEdition(ed.dataset.ed); return; }
+    const c = e.target.closest('.carte'); if (c) ouvreFiche(c.dataset.ref);
+  });
+  $('#btnRetour').onclick = () => { $('#fiche').hidden = true; };
+
+  /* panier */
+  $('#btnPanier').onclick = () => { renduPanier(); $('#panier').hidden = false; };
+  $('#btnFermerPanier').onclick = () => $('#panier').hidden = true;
+  $('#panierListe').addEventListener('click', e => {
+    const r = e.target.dataset.p || e.target.dataset.m || e.target.dataset.x; if (!r) return;
+    if (e.target.dataset.p) CART[r] += 1;
+    else if (e.target.dataset.m) CART[r] = Math.max(0, CART[r] - 1);
+    else if (e.target.dataset.x) CART[r] = 0;
+    if (!CART[r]) delete CART[r];
+    sauve('ess_cart_v1', CART); majBadge(); renduPanier();
+  });
+  $('#btnWa').onclick = commandeWhatsApp;
+  $('#btnVider').onclick = () => { CART = {}; sauve('ess_cart_v1', CART); majBadge(); renduPanier(); };
+  $('#btnDoc').onclick = () => { if (!Object.keys(CART).length) { alert('Panier vide : ajoutez d\'abord un article.'); return; }
+    $('#docClient').value = $('#nomClient').value; docNum = null; $('#docEtat').textContent = '';
+    $('#btnEnrVente').disabled = false; $('#doc').hidden = false; };
+  $('#btnFermerDoc').onclick = () => $('#doc').hidden = true;
+  $('#docType').addEventListener('change', () => { docNum = null; });
+  $('#btnApercu').onclick = () => { remplisDoc(); window.print(); };
+  $('#btnPdfShare').onclick = partagePdf;
+  $('#btnEnrVente').onclick = enregistreVente;
+  $('#btnJournal').onclick = () => { renduJournal(); $('#journal').hidden = false; };
+  $('#btnFermerJournal').onclick = () => $('#journal').hidden = true;
+  $('#btnJExport').onclick = exportJournal;
+
+  /* gestion */
+  $('#btnAdmin').onclick = () => { admin = !admin; $('#panneauAdmin').hidden = !admin; majEtat(); };
+  $('#btnFermerAdmin').onclick = () => $('#panneauAdmin').hidden = true;
+  $('#btnFermerEd').onclick = () => $('#edition').hidden = true;
+  $('#btnAjouter').onclick = () => ouvreEdition(null);
+  $('#btnExport').onclick = exportCSV;
+  $('#edWa').addEventListener('change', e => { WA = e.target.value.replace(/\D/g, ''); sauve('ess_wa_v1', WA);
+    pousse('cfg:wa', 'cfg', { wa: WA }); $('#adminEtat').textContent = '✔ Numéro WhatsApp des commandes mis à jour'; });
+  $('#edWave').addEventListener('change', e => { WAVE = e.target.value.trim(); sauve('ess_wave_v1', WAVE);
+    pousse('cfg:wave', 'cfg', { wave: WAVE }); $('#adminEtat').textContent = '✔ Lien Wave mis à jour'; });
+  $('#btnWave').onclick = () => { if (!Object.keys(CART).length) { alert('Panier vide.'); return; } window.open(WAVE, '_blank'); };
+  $('#btnWaveClient').onclick = () => {
+    const d = docDonnees(); if (!d.lines.length) return;
+    const cli = $('#docClient').value.trim();
+    const msg = `Bonjour${cli ? ' ' + cli : ''}, votre ${$('#docType').value} ESS d'un montant de *${fmt(d.total)}* est prêt.\n` +
+      `🌊 Réglez par Wave en un clic : ${WAVE}\nMerci de votre confiance ! — ESS · Elmansour Supplies & Services`;
+    window.open(`https://wa.me/${WA}?text=${encodeURIComponent(msg)}`, '_blank');
+  };
+  $('#btnReset').onclick = () => { if (confirm('Supprimer toutes vos modifications locales ?')) {
+    EDITS = {}; DELS = []; NEWS = []; sauve('ess_edits_v1', EDITS); sauve('ess_del_v1', DELS); sauve('ess_new_v1', NEWS);
+    renduChips(); renduListe(true); majEtat(); } };
+  $('#btnEnregistrer').onclick = () => {
+    const val = { nom: $('#edNom').value.trim(), cat: $('#edCat').value.trim(),
+      prix: $('#edPrix').value ? +$('#edPrix').value : null,
+      promo: $('#edPromo').value ? +$('#edPromo').value : null,
+      achat: $('#edAchat').value ? +$('#edAchat').value : null,
+      qte: $('#edQte').value !== '' ? +$('#edQte').value : null,
+      stock: $('#edStock').value };
+    if (!val.nom) { alert('Le nom du produit est obligatoire.'); return; }
+    const fin = f => {
+      if (refCourante && BASE.concat(NEWS).some(p => p.ref === refCourante)) {
+        EDITS[refCourante] = Object.assign({}, EDITS[refCourante], f ? { img: f } : {}, val);
+        sauve('ess_edits_v1', EDITS); pousse('edit:' + refCourante, 'edit', EDITS[refCourante]);
+      } else {
+        const ref = 'ESS-N' + String(NEWS.length + 1).padStart(3, '0');
+        const obj = Object.assign({ ref, pinfo: '', dim: '', desc: '',
+          img: f || 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><rect width="8" height="8" fill="#fff"/></svg>') }, val);
+        NEWS.push(obj); sauve('ess_new_v1', NEWS); pousse('new:' + ref, 'new', obj);
+      }
+      $('#edition').hidden = true; renduChips(); renduListe(true); majEtat();
+      $('#adminEtat').textContent = '✔ Enregistré sur cet appareil';
+    };
+    const f = $('#edPhoto').files[0];
+    if (f) photoVersData(f, fin); else fin(null);
+  };
+  $('#btnSupprimer').onclick = () => { if (refCourante && confirm('Supprimer ce produit du catalogue local ?')) {
+    DELS.push(refCourante); sauve('ess_del_v1', DELS); pousse('del:' + refCourante, 'del', { ref: refCourante });
+    $('#edition').hidden = true; $('#fiche').hidden = true; renduChips(); renduListe(true); majEtat(); } };
+
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost'))
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; $('#installBand').hidden = false; });
+  $('#btnInstall').onclick = async () => { if (deferredPrompt) { deferredPrompt.prompt(); await deferredPrompt.userChoice; }
+    $('#installBand').hidden = true; };
+  $('#btnIgnore').onclick = () => $('#installBand').hidden = true;
+  $('#syncEtat').onclick = () => tireSync(false);
+  setInterval(() => tireSync(true), 20000);
+}
+init();

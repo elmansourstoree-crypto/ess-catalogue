@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a2f4f">
+<title>ESS Catalogue — Elmansour Supplies & Services</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="img/icon-192.png">
+<link rel="icon" href="img/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <img src="img/icon-192.png" alt="ESS" class="logo">
+  <div class="titres">
+    <h1>ESS Catalogue</h1>
+    <span>Elmansour Supplies &amp; Services</span>
+  </div>
+  <button id="syncEtat" class="sync ok" title="Synchronisation cloud ESS">☁️</button>
+  <button id="btnPanier" class="iconbtn" title="Panier / commande" aria-label="Panier">🛒<span id="cartCount" class="pastille">0</span></button>
+  <button id="btnAdmin" class="iconbtn" title="Mode gestion" aria-label="Mode gestion">⚙️</button>
+</header>
+
+<div class="recherche">
+  <input id="q" type="search" placeholder="Rechercher un produit, une référence…" autocomplete="off">
+  <select id="stockFiltre" aria-label="Filtre stock">
+    <option value="">Tout le stock</option>
+    <option value="oui">En stock</option>
+    <option value="non">Épuisé</option>
+  </select>
+</div>
+<div id="chips" class="chips"></div>
+<div id="chipsF" class="chips"></div>
+
+<main>
+  <div id="compteur" class="compteur"></div>
+  <div id="grille" class="grille"></div>
+  <div id="fin" class="fin" hidden>— fin du catalogue —</div>
+</main>
+
+<div id="fiche" class="fiche" hidden>
+  <div class="fiche-tete">
+    <button id="btnRetour" class="iconbtn">←</button>
+    <h2 id="fNom"></h2>
+  </div>
+  <div class="fiche-corps" id="fCorps"></div>
+</div>
+
+<div id="panier" class="panneau" hidden>
+  <div class="panneau-tete">
+    <h2>🛒 Votre commande</h2>
+    <button id="btnFermerPanier" class="iconbtn">✕</button>
+  </div>
+  <div class="panneau-corps">
+    <div id="panierListe"></div>
+    <label>Votre nom / société (facultatif)<input id="nomClient" type="text" placeholder="Ex. : Société Diop & Frères"></label>
+    <div id="panierTotal" class="total"></div>
+    <button id="btnWa" class="btn vert">📲 Commander sur WhatsApp</button>
+    <button id="btnDoc" class="btn or">🧾 Devis / Facture</button>
+    <button id="btnVider" class="btn rouge">Vider le panier</button>
+  </div>
+</div>
+
+<div id="doc" class="panneau" hidden>
+  <div class="panneau-tete">
+    <h2>🧾 Document commercial</h2>
+    <button id="btnFermerDoc" class="iconbtn">✕</button>
+  </div>
+  <div class="panneau-corps">
+    <label>Type de document
+      <select id="docType"><option value="devis">Devis</option><option value="facture">Facture</option></select>
+    </label>
+    <label>Client (nom / société)<input id="docClient" type="text" placeholder="Ex. : Société Diop & Frères"></label>
+    <label>Mode de paiement
+      <select id="docPaiement"><option>Espèces</option><option>Virement</option><option>Wave / OM</option><option>Chèque</option></select>
+    </label>
+    <div class="rangee">
+      <button id="btnApercu" class="btn">🖨 Aperçu & imprimer</button>
+      <button id="btnPdfShare" class="btn vert">📲 Partager le PDF</button>
+    </div>
+    <button id="btnEnrVente" class="btn or">💾 Enregistrer la vente (stock + journal)</button>
+    <p id="docEtat" class="etat"></p>
+  </div>
+</div>
+
+<div id="journal" class="panneau" hidden>
+  <div class="panneau-tete">
+    <h2>📊 Journal des ventes</h2>
+    <button id="btnFermerJournal" class="iconbtn">✕</button>
+  </div>
+  <div class="panneau-corps">
+    <div id="jStats" class="stats"></div>
+    <div id="jListe"></div>
+    <button id="btnJExport" class="btn">⬇️ Exporter le journal (CSV)</button>
+  </div>
+</div>
+
+<div id="panneauAdmin" class="panneau" hidden>
+  <div class="panneau-tete">
+    <h2>Mode gestion</h2>
+    <button id="btnFermerAdmin" class="iconbtn">✕</button>
+  </div>
+  <div class="panneau-corps">
+    <p class="aide">Modifiez prix, stock et fiches directement depuis le téléphone. Tout est enregistré sur l'appareil, puis exportable en CSV pour la base de données ESS.</p>
+    <label>Numéro WhatsApp des commandes<input id="edWa" type="tel" inputmode="numeric"></label>
+    <label>Lien Wave de paiement<input id="edWave" type="url"></label>
+    <button id="btnJournal" class="btn">📊 Journal des ventes</button>
+    <button id="btnAjouter" class="btn or">＋ Ajouter un produit</button>
+    <button id="btnExport" class="btn">⬇️ Exporter le catalogue (CSV)</button>
+    <button id="btnReset" class="btn rouge">↺ Annuler mes modifications locales</button>
+    <p id="adminEtat" class="etat"></p>
+  </div>
+</div>
+
+<div id="edition" class="panneau" hidden>
+  <div class="panneau-tete">
+    <h2 id="edTitre">Fiche produit</h2>
+    <button id="btnFermerEd" class="iconbtn">✕</button>
+  </div>
+  <div class="panneau-corps">
+    <label>Nom du produit<input id="edNom" type="text"></label>
+    <label>Catégorie<input id="edCat" type="text"></label>
+    <label>Prix (FCFA)<input id="edPrix" type="number" min="0" step="500"></label>
+    <label>Prix promo (FCFA) — facultatif<input id="edPromo" type="number" min="0" step="500"></label>
+    <label>Prix d'achat (FCFA) — pour la marge<input id="edAchat" type="number" min="0" step="500"></label>
+    <label>Stock : quantité (facultatif)<input id="edQte" type="number" min="0"></label>
+    <label>Stock
+      <select id="edStock"><option value="oui">En stock</option><option value="non">Épuisé</option><option value="">Non renseigné</option></select>
+    </label>
+    <label>Photo (caméra / galerie)<input id="edPhoto" type="file" accept="image/*" capture="environment"></label>
+    <div class="rangee">
+      <button id="btnEnregistrer" class="btn vert">✔ Enregistrer</button>
+      <button id="btnSupprimer" class="btn rouge">🗑 Supprimer</button>
+    </div>
+  </div>
+</div>
+
+<div id="installBand" class="band" hidden>
+  <span>📲 Installer l'appli ESS sur votre téléphone ?</span>
+  <button id="btnInstall" class="btn vert">Installer</button>
+  <button id="btnIgnore" class="iconbtn">✕</button>
+</div>
+
+<div id="docPrint"></div>
+
+<script src="libs/jspdf.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
