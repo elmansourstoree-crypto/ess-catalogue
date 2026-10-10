@@ -33,6 +33,12 @@
 </div>
 <div id="chips" class="chips"></div>
 
+<div id="bandClient" class="bandCli" hidden>
+  <div class="btxt"><b>🛍 Catalogue ESS</b>
+    <span>Ajoutez vos articles au panier, puis envoyez votre commande sur WhatsApp.</span></div>
+  <a class="btn vert" href="tel:+221777477778">📞 Appeler</a>
+</div>
+
 <main>
   <div id="compteur" class="compteur"></div>
   <div id="grille" class="grille"></div>
@@ -104,6 +110,7 @@
   <div class="panneau-corps">
     <p class="aide">Modifiez prix, stock et fiches directement depuis le téléphone. Tout est enregistré sur l'appareil, puis exportable en CSV pour la base de données ESS.</p>
     <label>Numéro WhatsApp des commandes<input id="edWa" type="tel" inputmode="numeric"></label>
+    <label>Code d'accès gestion (ce code protège vos marges et votre journal)<input id="edPin" type="text" inputmode="numeric"></label>
     <label>Lien Wave de paiement<input id="edWave" type="url"></label>
     <button id="btnJournal" class="btn">📊 Journal des ventes</button>
     <button id="btnAjouter" class="btn or">＋ Ajouter un produit</button>
