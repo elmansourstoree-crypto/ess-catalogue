@@ -138,3 +138,21 @@ body.client #btnAdmin{display:none}
 #docPrint .totaux .tt{background:#1a2f4f; color:#fff; font-weight:800; border-radius:6px; font-size:14px}
 #docPrint .pied{margin-top:22px; border-top:1px solid #ccd3dd; padding-top:10px; font-size:10px; color:#555; line-height:1.6}
 #docPrint .merci{margin-top:10px; font-weight:700; color:#1a2f4f}
+
+/* selection multiple */
+.selbar{position:fixed; left:0; right:0; bottom:0; z-index:40; display:flex; align-items:center; gap:6px;
+  background:var(--navy); color:#fff; padding:8px 10px; padding-bottom:max(8px,env(safe-area-inset-bottom));
+  box-shadow:0 -3px 12px rgba(10,20,40,.3); flex-wrap:wrap}
+.selbar #selInfo{font-size:12.5px; font-weight:700; margin-right:auto}
+.mini{border:0; background:rgba(255,255,255,.16); color:#fff; border-radius:9px; padding:7px 10px; font-size:12.5px; font-weight:600}
+.mini:active{background:rgba(255,255,255,.3)}
+.carte.sel{outline:3px solid var(--or); outline-offset:-3px}
+.case{position:absolute; top:6px; left:6px; z-index:3; font-size:19px; line-height:1;
+  background:#fff; border-radius:6px; padding:1px 3px; box-shadow:0 1px 4px rgba(0,0,0,.25)}
+body.selmode main{padding-bottom:70px}
+
+/* caracteristiques techniques */
+table.spec{width:100%; border-collapse:collapse; font-size:13px}
+table.spec th{text-align:left; color:var(--gris); font-weight:600; padding:6px 8px 6px 0;
+  border-bottom:1px solid #eceff3; white-space:nowrap; vertical-align:top; width:40%}
+table.spec td{padding:6px 0; border-bottom:1px solid #eceff3; font-weight:600}

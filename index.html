@@ -20,6 +20,7 @@
   <button id="syncEtat" class="sync ok" title="Synchronisation cloud ESS">☁️</button>
   <button id="btnPanier" class="iconbtn" title="Panier / commande" aria-label="Panier">🛒<span id="cartCount" class="pastille">0</span></button>
   <button id="btnAdmin" class="iconbtn" title="Mode gestion" aria-label="Mode gestion">⚙️</button>
+  <button id="btnSel" class="iconbtn" title="Sélectionner plusieurs articles" aria-label="Sélection">☑️</button>
 </header>
 
 <div class="recherche">
@@ -139,6 +140,35 @@
   <span>📲 Installer l'appli ESS sur votre téléphone ?</span>
   <button id="btnInstall" class="btn vert">Installer</button>
   <button id="btnIgnore" class="iconbtn">✕</button>
+</div>
+
+<div id="selBar" class="selbar" hidden>
+  <span id="selInfo">0 sélectionné</span>
+  <button id="selTout" class="mini">Tout</button>
+  <button id="selPanier" class="mini">🛒 Ajouter</button>
+  <button id="selPrix" class="mini">💰 Prix / marge</button>
+  <button id="selShare" class="mini">📤 Partager</button>
+  <button id="selFin" class="mini">✕</button>
+</div>
+
+<div id="panneauPrix" class="panneau" hidden>
+  <div class="panneau-tete">
+    <h2>💰 Prix et marge</h2>
+    <button id="btnFermerPrix" class="iconbtn">✕</button>
+  </div>
+  <div class="panneau-corps">
+    <p id="prixInfo" class="aide"></p>
+    <label>Marge à appliquer (%)<input id="margePct" type="number" inputmode="numeric" placeholder="Ex. : 15"></label>
+    <button id="btnMargePct" class="btn or">✔ Appliquer cette marge</button>
+    <label>Nouveau prix fixe (FCFA)<input id="prixFixe" type="number" inputmode="numeric" placeholder="Ex. : 250000"></label>
+    <button id="btnPrixFixe" class="btn">✔ Appliquer ce prix</button>
+    <button id="btnPrixInit" class="btn rouge">↺ Rétablir les prix d'origine</button>
+    <button id="btnMargeAchat" class="btn">📊 Marge automatique (prix d'achat + %)</button>
+    <div class="rangee">
+      <label style="flex:1">% sur le prix d'achat<input id="margeAchatPct" type="number" inputmode="numeric" placeholder="Ex. : 20"></label>
+    </div>
+    <p id="prixEtat" class="etat"></p>
+  </div>
 </div>
 
 <div id="docPrint"></div>

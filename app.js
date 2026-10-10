@@ -11,6 +11,7 @@ const SB = { url: 'https://vitqwefhyywvhdcspeuo.supabase.co',
 let BASE = [], EDITS = {}, DELS = [], NEWS = [], CART = {}, WA = DEFAULT_WA, WAVE = DEFAULT_WAVE;
 let vue = { q: '', cat: '', stock: '', haut: false, liste: [], offset: 0 };
 let admin = false, client = false, refCourante = null, deferredPrompt = null;
+let selMode = false; const SEL = new Set();
 const PAS = 48;
 
 const charge = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
@@ -51,15 +52,51 @@ function filtres() {
 }
 
 /* ---------- liste ---------- */
+function specCourt(p) {
+  if (!p.spec) return '';
+  const t = [];
+  if (p.spec['Processeur']) t.push(p.spec['Processeur']);
+  if (p.spec['Mémoire RAM']) t.push(/^\d+$/.test(p.spec['Mémoire RAM']) ? p.spec['Mémoire RAM'] + ' Go de RAM' : p.spec['Mémoire RAM']);
+  if (p.spec['Stockage']) t.push(p.spec['Stockage']);
+  return t.slice(0, 3).join(' · ');
+}
 function carteHTML(p) {
   const pv = prixDe(p);
   const prix = pv != null ? fmt(pv) : (p.pinfo || 'Sur demande');
   const promo = p.promo && p.prix ? `<s class="ancien">${fmt(p.prix)}</s> <span class="badge promo">PROMO</span>` : '';
   const stock = client ? '' : (p.qte != null && p.qte !== '' ? `<span class="s ${+p.qte > 0 ? '' : 'non'}">● Stock : ${p.qte}</span>` : p.stock === 'oui' ? '<span class="s">● En stock</span>' : p.stock === 'non' ? '<span class="s non">● Épuisé</span>' : '');
   const crayon = admin ? `<button class="crayon" data-ed="${p.ref}" aria-label="Modifier">✏️</button>` : '';
-  return `<button class="carte" data-ref="${p.ref}">
-    <div style="position:relative"><img loading="lazy" src="${imgSrc(p)}" alt="">${crayon}</div>
-    <div class="c"><span class="n">${esc(p.nom)}</span><span class="p">${esc(prix)} ${promo}</span>${stock}${p.marque ? `<span class="fr">${esc(p.marque)}</span>` : ''}<span class="de">${esc(coupe(p.desc, 95))}</span></div></button>`;
+  const boite = selMode ? `<span class="case">${SEL.has(p.ref) ? '✅' : '⬜'}</span>` : '';
+  const court = specCourt(p);
+  return `<button class="carte${SEL.has(p.ref) ? ' sel' : ''}" data-ref="${p.ref}">
+    <div style="position:relative"><img loading="lazy" src="${imgSrc(p)}" alt="">${crayon}${boite}</div>
+    <div class="c"><span class="n">${esc(p.nom)}</span><span class="p">${esc(prix)} ${promo}</span>${stock}${court ? `<span class="fr">${esc(court)}</span>` : (p.marque ? `<span class="fr">${esc(p.marque)}</span>` : '')}<span class="de">${esc(coupe(p.desc, 95))}</span></div></button>`;
+}
+/* ---------- selection multiple ---------- */
+function majSel() {
+  const n = SEL.size;
+  $('#selInfo').textContent = n ? `${n} article${n > 1 ? 's' : ''} sélectionné${n > 1 ? 's' : ''}` : 'Touchez les articles à sélectionner';
+  $('#selBar').hidden = !selMode;
+  document.body.classList.toggle('selmode', selMode);
+}
+function basculeSel(ref, el) {
+  SEL.has(ref) ? SEL.delete(ref) : SEL.add(ref);
+  const on = SEL.has(ref);
+  el.classList.toggle('sel', on);
+  const b = el.querySelector('.case'); if (b) b.textContent = on ? '✅' : '⬜';
+  majSel();
+}
+function appliquePrix(fn, label) {
+  const P = new Map(produits().map(p => [p.ref, p]));
+  let n = 0;
+  for (const r of SEL) {
+    const p = P.get(r); if (!p) continue;
+    const nv = fn(p); if (!nv) continue;
+    EDITS[r] = Object.assign({}, EDITS[r], { prix: nv, promo: '' });
+    pousse('edit:' + r, 'edit', EDITS[r]); n++;
+  }
+  sauve('ess_edits_v1', EDITS); indexe(); renduListe(true); majEtat();
+  $('#prixEtat').textContent = `✔ ${label} appliquée à ${n} article${n > 1 ? 's' : ''}`;
 }
 function renduChips() {
   const P = produits(); const cc = {};
@@ -97,6 +134,7 @@ function ouvreFiche(ref) {
     <div class="prixgd">${esc(prix)}</div>
     <div>${badges}</div>
     ${admin && p.achat && pv != null ? `<div class="bloc"><h3>Marge (gestion)</h3><p>Prix d'achat : ${fmt(p.achat)} · Marge : <b>${fmt(pv - p.achat)}</b> (${p.achat ? Math.round((pv - p.achat) / p.achat * 100) : 0} %)</p></div>` : ''}
+    ${p.spec ? `<div class="bloc"><h3>Caractéristiques techniques</h3><table class="spec">${Object.entries(p.spec).map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table></div>` : ''}
     ${p.desc ? `<div class="bloc"><h3>Description</h3><p>${esc(p.desc)}</p></div>` : ''}
     ${p.dim ? `<div class="bloc"><h3>Dimensions</h3><p>${esc(p.dim)}</p></div>` : ''}
     <div class="rangeeBtns">
@@ -396,8 +434,43 @@ async function init() {
   $('#grille').addEventListener('click', e => {
     const ed = e.target.closest('[data-ed]');
     if (ed) { e.stopPropagation(); ouvreEdition(ed.dataset.ed); return; }
-    const c = e.target.closest('.carte'); if (c) ouvreFiche(c.dataset.ref);
+    const c = e.target.closest('.carte'); if (!c) return;
+    if (selMode) { basculeSel(c.dataset.ref, c); return; }
+    ouvreFiche(c.dataset.ref);
   });
+  $('#btnSel').onclick = () => { selMode = !selMode; if (!selMode) SEL.clear(); majSel(); renduListe(true); };
+  $('#selFin').onclick = () => { selMode = false; SEL.clear(); majSel(); renduListe(true); };
+  $('#selTout').onclick = () => { filtres().forEach(p => SEL.add(p.ref)); majSel(); renduListe(true); };
+  $('#selPanier').onclick = () => { let n = 0;
+    for (const r of SEL) { CART[r] = (CART[r] || 0) + 1; n++; }
+    sauve('ess_cart_v1', CART); majBadge();
+    $('#selInfo').textContent = `🛒 ${n} article${n > 1 ? 's' : ''} ajouté${n > 1 ? 's' : ''}`; };
+  $('#selPrix').onclick = () => {
+    if (!SEL.size) { alert('Sélectionnez d\'abord des articles.'); return; }
+    const l = [...SEL].map(r => produits().find(p => p.ref === r)).filter(p => p && prixDe(p) != null);
+    $('#prixInfo').textContent = `${SEL.size} article(s) sélectionné(s) — ${l.length} avec un prix.`;
+    $('#prixEtat').textContent = ''; $('#panneauPrix').hidden = false; };
+  $('#btnFermerPrix').onclick = () => { $('#panneauPrix').hidden = true; };
+  $('#btnMargePct').onclick = () => { const pct = +$('#margePct').value; if (!pct) return;
+    appliquePrix(p => { const pv = prixDe(p); return pv ? Math.round(pv * (1 + pct / 100) / 100) * 100 : null; }, `Marge de ${pct} %`); };
+  $('#btnPrixFixe').onclick = () => { const v = +$('#prixFixe').value; if (!v) return;
+    appliquePrix(() => v, `Prix fixe de ${fmt(v)}`); };
+  $('#btnMargeAchat').onclick = () => { const pct = +$('#margeAchatPct').value; if (!pct) return;
+    appliquePrix(p => p.achat ? Math.round(p.achat * (1 + pct / 100) / 100) * 100 : null, `Marge de ${pct} % sur le prix d'achat`); };
+  $('#btnPrixInit').onclick = () => { let n = 0;
+    for (const r of SEL) { if (EDITS[r]) { delete EDITS[r].prix; delete EDITS[r].promo;
+      if (!Object.keys(EDITS[r]).length) delete EDITS[r];
+      pousse('edit:' + r, 'edit', EDITS[r] || {}); n++; } }
+    sauve('ess_edits_v1', EDITS); indexe(); renduListe(true); majEtat();
+    $('#prixEtat').textContent = `✔ ${n} fiche(s) rétablie(s) au prix d'origine`; };
+  $('#selShare').onclick = () => {
+    const P = new Map(produits().map(p => [p.ref, p]));
+    const l = [...SEL].map(r => P.get(r)).filter(Boolean); if (!l.length) return;
+    const txt = '🛍 Catalogue ESS — sélection\n\n' +
+      l.map((p, i) => `${i + 1}. ${p.nom} — ${prixDe(p) != null ? fmt(prixDe(p)) : 'prix sur demande'} (réf. ${p.ref})`).join('\n') +
+      '\n\nESS · Elmansour Supplies & Services\nKeur Massar Nord, Dakar · +221 77 747 77 78';
+    if (navigator.share) navigator.share({ text: txt }).catch(() => {});
+    else location.href = 'https://wa.me/?text=' + encodeURIComponent(txt); };
   $('#btnRetour').onclick = () => { $('#fiche').hidden = true; };
 
   /* panier */
