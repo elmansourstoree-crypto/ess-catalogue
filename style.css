@@ -81,6 +81,8 @@ body.client #btnAdmin{display:none}
 .chip.f.on{background:var(--or); color:#241c07; border-color:var(--or)}
 .carte .fr{font-size:10.5px; font-weight:700; color:var(--gris); letter-spacing:.2px;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.carte .de{font-size:11px; line-height:1.35; color:var(--gris); display:-webkit-box;
+  -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
 .sync{border:0; background:none; font-size:17px; padding:2px 3px; line-height:1}
 .sync.err{filter:grayscale(1); opacity:.55}
 .sync.encours{opacity:.65}

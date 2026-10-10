@@ -9,7 +9,7 @@ const DEFAULT_WAVE = 'https://pay.wave.com/m/M_sn__kJhIPEZIYZA/c/sn/';
 const SB = { url: 'https://vitqwefhyywvhdcspeuo.supabase.co',
   key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpdHF3ZWZoeXl3dmhkY3NwZXVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1ODUyMjMsImV4cCI6MjEwNzE2MTIyM30.fcMZ18-933YuvBSMi0MYTw6tuDm5_M-8yMdzJh5pfvk' };
 let BASE = [], EDITS = {}, DELS = [], NEWS = [], CART = {}, WA = DEFAULT_WA, WAVE = DEFAULT_WAVE;
-let vue = { q: '', cat: '', stock: '', fourn: '', haut: false, liste: [], offset: 0 };
+let vue = { q: '', cat: '', stock: '', haut: false, liste: [], offset: 0 };
 let admin = false, client = false, refCourante = null, deferredPrompt = null;
 const PAS = 48;
 
@@ -27,7 +27,8 @@ function produits() {
   return [...map.values()];
 }
 const prixDe = p => (p.promo ? p.promo : p.prix);
-const cle = p => norm([p.nom, p.ref, p.cat, p.fourn, p.marque, p.rf].filter(Boolean).join(' '));
+const cle = p => norm([p.nom, p.ref, p.cat, p.marque].filter(Boolean).join(' '));
+const coupe = (s, n) => { const t = (s || '').trim(); return t.length <= n ? t : t.slice(0, n).replace(/\s+\S*$/, '') + '…'; };
 let IDX = new Map();
 function indexe() {
   IDX = new Map();
@@ -40,7 +41,6 @@ function indexe() {
 function filtres() {
   let l = produits();
   if (vue.cat) l = l.filter(p => p.cat.split(' | ')[0] === vue.cat);
-  if (vue.fourn) l = l.filter(p => p.fourn === vue.fourn);
   if (vue.stock) l = l.filter(p => p.stock === vue.stock);
   if (vue.haut) { const vus = new Set();
     l = l.filter(p => { if (!p.grp) return true; if (p.prix !== p.maxg) return false;
@@ -59,26 +59,22 @@ function carteHTML(p) {
   const crayon = admin ? `<button class="crayon" data-ed="${p.ref}" aria-label="Modifier">✏️</button>` : '';
   return `<button class="carte" data-ref="${p.ref}">
     <div style="position:relative"><img loading="lazy" src="${imgSrc(p)}" alt="">${crayon}</div>
-    <div class="c"><span class="n">${esc(p.nom)}</span><span class="p">${esc(prix)} ${promo}</span>${stock}${p.fourn ? `<span class="fr">${esc(p.fourn)}${p.marque ? ' · ' + esc(p.marque) : ''}</span>` : ''}</div></button>`;
+    <div class="c"><span class="n">${esc(p.nom)}</span><span class="p">${esc(prix)} ${promo}</span>${stock}${p.marque ? `<span class="fr">${esc(p.marque)}</span>` : ''}<span class="de">${esc(coupe(p.desc, 95))}</span></div></button>`;
 }
 function renduChips() {
-  const P = produits(); const cc = {}, fc = {};
-  for (const p of P) { const c = p.cat.split(' | ')[0]; cc[c] = (cc[c] || 0) + 1; fc[p.fourn] = (fc[p.fourn] || 0) + 1; }
+  const P = produits(); const cc = {};
+  for (const p of P) { const c = p.cat.split(' | ')[0]; cc[c] = (cc[c] || 0) + 1; }
   const cats = Object.entries(cc).sort((a, b) => b[1] - a[1]);
   $('#chips').innerHTML = `<button class="chip ${vue.cat ? '' : 'on'}" data-cat="">Tout (${P.length})</button>` +
-    cats.map(([c, n]) => `<button class="chip ${vue.cat === c ? 'on' : ''}" data-cat="${esc(c)}">${esc(c)} (${n})</button>`).join('');
-  const fs = Object.entries(fc).sort((a, b) => b[1] - a[1]);
-  $('#chipsF').innerHTML = `<button class="chip f ${vue.fourn ? '' : 'on'}" data-f="">Tous fournisseurs</button>` +
-    fs.map(([f, n]) => `<button class="chip f ${vue.fourn === f ? 'on' : ''}" data-f="${esc(f)}">${esc(f)} (${n})</button>`).join('') +
-    `<button class="chip f ${vue.haut ? 'on' : ''}" data-haut="1" title="Une seule fiche par produit : celle du prix le plus élevé">⚖️ Prix le + élevé</button>`;
+    cats.map(([c, n]) => `<button class="chip ${vue.cat === c ? 'on' : ''}" data-cat="${esc(c)}">${esc(c)} (${n})</button>`).join('') +
+    `<button class="chip f ${vue.haut ? 'on' : ''}" data-haut="1" title="Une seule fiche par produit : celle au prix le plus élevé">⚖️ Prix le + élevé</button>`;
 }
 function renduListe(reset) {
   if (reset) { vue.liste = filtres(); vue.offset = 0; $('#grille').innerHTML = ''; }
   $('#grille').insertAdjacentHTML('beforeend', vue.liste.slice(vue.offset, vue.offset + PAS).map(carteHTML).join(''));
   vue.offset = Math.min(vue.offset + PAS, vue.liste.length);
   $('#compteur').textContent = `${vue.liste.length} article${vue.liste.length > 1 ? 's' : ''}` +
-    (vue.q ? ` pour « ${vue.q} »` : '') + (vue.cat ? ` · ${vue.cat}` : '') +
-    (vue.fourn ? ` · ${vue.fourn}` : '') + (vue.haut ? ' · prix le + élevé' : '');
+    (vue.q ? ` pour « ${vue.q} »` : '') + (vue.cat ? ` · ${vue.cat}` : '') + (vue.haut ? ' · prix le + élevé' : '');
   $('#fin').hidden = vue.offset < vue.liste.length;
 }
 
@@ -94,7 +90,6 @@ function ouvreFiche(ref) {
     !client && p.stock === 'oui' ? '<span class="badge vert">En stock</span>' : !client && p.stock === 'non' ? '<span class="badge rouge">Épuisé</span>' : '',
     `<span class="badge or">${esc(p.cat.split(' | ')[0])}</span>`,
     p.marque ? `<span class="badge or">${esc(p.marque)}</span>` : '',
-    !client && p.fourn ? `<span class="badge gris">${esc(p.fourn)}</span>` : '',
     `<span class="badge gris">${esc(p.ref)}</span>`].join('');
   $('#fCorps').innerHTML = `
     <img class="gd" src="${imgSrc(p)}" alt="${esc(p.nom)}">
@@ -102,9 +97,8 @@ function ouvreFiche(ref) {
     <div class="prixgd">${esc(prix)}</div>
     <div>${badges}</div>
     ${admin && p.achat && pv != null ? `<div class="bloc"><h3>Marge (gestion)</h3><p>Prix d'achat : ${fmt(p.achat)} · Marge : <b>${fmt(pv - p.achat)}</b> (${p.achat ? Math.round((pv - p.achat) / p.achat * 100) : 0} %)</p></div>` : ''}
-    ${!client && p.alt ? `<div class="bloc"><h3>⚖️ Autres fournisseurs (même modèle)</h3><p>${esc(p.alt)}</p>${admin && p.achat ? `<p style="margin-top:6px">Prix d'achat conseillé (le moins cher) : <b>${fmt(p.achat)}</b></p>` : ''}</div>` : ''}
-    ${p.dim ? `<div class="bloc"><h3>Dimensions</h3><p>${esc(p.dim)}</p></div>` : ''}
     ${p.desc ? `<div class="bloc"><h3>Description</h3><p>${esc(p.desc)}</p></div>` : ''}
+    ${p.dim ? `<div class="bloc"><h3>Dimensions</h3><p>${esc(p.dim)}</p></div>` : ''}
     <div class="rangeeBtns">
       <input id="fQte" type="number" min="1" value="1" inputmode="numeric" aria-label="Quantité">
       <button class="btn vert" id="btnAjoutPanier">🛒 Ajouter</button>
@@ -190,9 +184,9 @@ function photoVersData(file, cb) {
 }
 function exportCSV() {
   const l = produits();
-  const tete = 'ref,nom_produit,categorie,fournisseur,marque,ref_fournisseur,prix_fcfa,prix_promo,prix_achat,stock_qte,prix_info,dimensions,description,en_stock,image';
+  const tete = 'ref,nom_produit,categorie,marque,prix_fcfa,prix_promo,prix_achat,stock_qte,prix_info,dimensions,description,en_stock,image';
   const q = v => /[",;\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
-  const lignes = l.map(p => [p.ref, p.nom, p.cat, p.fourn ?? '', p.marque ?? '', p.rf ?? '', p.prix ?? '', p.promo ?? '', p.achat ?? '', p.qte ?? '', p.pinfo, p.dim, p.desc, p.stock,
+  const lignes = l.map(p => [p.ref, p.nom, p.cat, p.marque ?? '', p.prix ?? '', p.promo ?? '', p.achat ?? '', p.qte ?? '', p.pinfo, p.dim, p.desc, p.stock,
     p.img.startsWith('data:') ? p.ref + '_nouveau.jpg' : p.img].map(v => q(String(v ?? ''))).join(','));
   const blob = new Blob(['\ufeff' + tete + '\n' + lignes.join('\n')], { type: 'text/csv;charset=utf-8' });
   const nom = `ESS_catalogue_maj_${new Date().toISOString().slice(0, 10)}.csv`;
@@ -394,9 +388,7 @@ async function init() {
   $('#q').addEventListener('input', e => { vue.q = e.target.value.trim(); renduListe(true); });
   $('#stockFiltre').addEventListener('change', e => { vue.stock = e.target.value; renduListe(true); });
   $('#chips').addEventListener('click', e => { const c = e.target.closest('.chip'); if (!c) return;
-    vue.cat = c.dataset.cat; renduChips(); renduListe(true); });
-  $('#chipsF').addEventListener('click', e => { const c = e.target.closest('.chip'); if (!c) return;
-    if (c.dataset.haut) vue.haut = !vue.haut; else vue.fourn = c.dataset.f;
+    if (c.dataset.haut) vue.haut = !vue.haut; else vue.cat = c.dataset.cat;
     renduChips(); renduListe(true); });
   window.addEventListener('scroll', () => {
     if ($('#fiche').hidden && $('#panier').hidden && window.innerHeight + window.scrollY > document.body.offsetHeight - 700) renduListe(false);
