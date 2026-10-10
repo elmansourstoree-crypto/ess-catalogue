@@ -139,7 +139,14 @@ body.client #btnAdmin{display:none}
 #docPrint .pied{margin-top:22px; border-top:1px solid #ccd3dd; padding-top:10px; font-size:10px; color:#555; line-height:1.6}
 #docPrint .merci{margin-top:10px; font-weight:700; color:#1a2f4f}
 
-/* selection multiple */
+.bandCli{display:flex; align-items:center; gap:10px; margin:0 12px 8px; padding:10px 12px;
+  background:linear-gradient(135deg,#eaf1fb,#fff); border:1px solid #cfe0f5; border-radius:12px}
+.bandCli .btxt{flex:1; min-width:0}
+.bandCli b{color:var(--navy); font-size:14px}
+.bandCli span{display:block; font-size:11.5px; color:var(--gris); line-height:1.35}
+.bandCli .btn{padding:8px 12px; font-size:12.5px; text-decoration:none}
+.piedCli{text-align:center; font-size:11px; color:var(--gris); padding:14px 12px 22px}
+.piedCli a{color:var(--gris); text-decoration:none; border-bottom:1px dotted #9aa3b1}
 .selbar{position:fixed; left:0; right:0; bottom:0; z-index:40; display:flex; align-items:center; gap:6px;
   background:var(--navy); color:#fff; padding:8px 10px; padding-bottom:max(8px,env(safe-area-inset-bottom));
   box-shadow:0 -3px 12px rgba(10,20,40,.3); flex-wrap:wrap}

@@ -12,6 +12,7 @@ let BASE = [], EDITS = {}, DELS = [], NEWS = [], CART = {}, WA = DEFAULT_WA, WAV
 let vue = { q: '', cat: '', stock: '', haut: false, liste: [], offset: 0 };
 let admin = false, client = false, refCourante = null, deferredPrompt = null;
 let selMode = false; const SEL = new Set();
+let PIN = charge('ess_pin_v1', '2026');
 const PAS = 48;
 
 const charge = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
@@ -272,6 +273,7 @@ function remplisDoc() {
     <div class="meta"><div><b>Date d'émission</b><br>${auj}</div>
       <div><b>Mode de paiement</b><br>${esc($('#docPaiement').value)}</div>
       <div><b>Facturé à / Client</b><br>${esc($('#docClient').value.trim() || 'Client de passage')}</div></div>
+  iv></div>
     <table><tr><th>N°</th><th>Désignation</th><th class="n">Qté</th><th class="n">Prix unit.</th><th class="n">Montant (FCFA)</th></tr>
     ${d.lines.map((l, i) => `<tr><td>${i + 1}</td><td>${esc(l.nom)} <small>(${l.ref})</small></td><td class="n">${l.q}</td>
       <td class="n">${l.pu ? l.pu.toLocaleString('fr-FR') : 'sur demande'}</td><td class="n">${l.pu ? (l.pu * l.q).toLocaleString('fr-FR') : '—'}</td></tr>`).join('')}</table>
@@ -412,7 +414,8 @@ async function tireSync(silencieux) {
 /* ---------- init ---------- */
 async function init() {
   client = new URLSearchParams(location.search).get('mode') === 'client';
-  if (client) document.body.classList.add('client');
+  if (client) { document.body.classList.add('client');
+    $('#bandClient').hidden = false; $('#piedClient').hidden = false; $('#btnAdmin').style.display = 'none'; }
   BASE = await (await fetch('data/products.json')).json();
   EDITS = charge('ess_edits_v1', {}); DELS = charge('ess_del_v1', []); NEWS = charge('ess_new_v1', []);
   CART = charge('ess_cart_v1', {}); WA = charge('ess_wa_v1', DEFAULT_WA); VENTES = charge('ess_ventes_v1', []);
@@ -499,7 +502,18 @@ async function init() {
   $('#btnJExport').onclick = exportJournal;
 
   /* gestion */
-  $('#btnAdmin').onclick = () => { admin = !admin; $('#panneauAdmin').hidden = !admin; majEtat(); };
+  $('#btnAdmin').onclick = () => {
+    if (admin) { admin = false; sauve('ess_admin_v1', false); $('#panneauAdmin').hidden = true; majEtat(); return; }
+    const c = prompt('Code d\'accès gestion :'); if (c === null) return;
+    if (c.trim() !== PIN) { alert('Code incorrect.'); return; }
+    admin = true; sauve('ess_admin_v1', true); $('#panneauAdmin').hidden = false; majEtat(); };
+  $('#lienGestion').onclick = e => { e.preventDefault();
+    const c = prompt('Code d\'accès gestion :'); if (c === null) return;
+    if (c.trim() !== PIN) { alert('Code incorrect.'); return; }
+    sauve('ess_admin_v1', true); location.href = location.pathname; };
+  $('#edPin').value = PIN;
+  $('#edPin').addEventListener('change', e => { PIN = (e.target.value || '').trim() || '2026';
+    sauve('ess_pin_v1', PIN); $('#adminEtat').textContent = '✔ Code d\'accès mis à jour — ne l\'oubliez pas'; });
   $('#btnFermerAdmin').onclick = () => $('#panneauAdmin').hidden = true;
   $('#btnFermerEd').onclick = () => $('#edition').hidden = true;
   $('#btnAjouter').onclick = () => ouvreEdition(null);

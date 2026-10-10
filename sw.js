@@ -1,7 +1,7 @@
 /* Service worker ESS Catalogue : coquille en network-first, images en cache-first */
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest',
   'data/products.json', 'libs/jspdf.umd.min.js', 'img/icon-192.png', 'img/icon-512.png', 'img/logo-header.png'];
-const V_SHELL = 'ess-shell-v6', V_IMG = 'ess-img-v2';
+const V_SHELL = 'ess-shell-v7', V_IMG = 'ess-img-v2';
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(V_SHELL).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
