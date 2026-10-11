@@ -23,17 +23,23 @@ function balise(etape, infos) {
           quand: new Date().toISOString() }, infos || {}) }]) });
   } catch (e) {}
 }
+window.addEventListener('error', e => {
+  balise('erreur-js-tot', { erreur: String(e.message || '') + ' | ' + String(e.filename || '') + ' ligne ' + e.lineno + ' col ' + e.colno });
+});
+window.addEventListener('unhandledrejection', e => {
+  balise('erreur-promesse-tot', { erreur: String(e.reason && e.reason.message ? e.reason.message : e.reason).slice(0, 300) });
+});
 balise('app.js-demarre');
 let BASE = [], EDITS = {}, DELS = [], NEWS = [], CART = {}, WA = DEFAULT_WA, WAVE = DEFAULT_WAVE;
 let vue = { q: '', cat: '', stock: '', marque: '', haut: false, liste: [], offset: 0 };
 let admin = false, client = false, refCourante = null, deferredPrompt = null;
 let selMode = false; const SEL = new Set();
-let PIN = charge('ess_pin_v1', '2026');
 const PAS = 48;
 
-const charge = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
-const sauve = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+function charge(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } }
+function sauve(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 const imgSrc = p => p.img.startsWith('data:') ? p.img : 'images/' + p.img;
+let PIN = charge('ess_pin_v1', '2026');
 
 function produits() {
   const map = new Map();

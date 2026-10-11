@@ -1,7 +1,7 @@
 /* Service worker ESS Catalogue : coquille en network-first, images en cache-first */
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest',
   'libs/jspdf.umd.min.js', 'img/icon-192.png', 'img/icon-512.png', 'img/logo-header.png'];
-const V_SHELL = 'ess-shell-v11', V_IMG = 'ess-img-v3';
+const V_SHELL = 'ess-shell-v12', V_IMG = 'ess-img-v4';
 
 self.addEventListener('install', e => {
   /* Safari : si la mise en cache de la coquille echoue, on active quand meme le SW,
