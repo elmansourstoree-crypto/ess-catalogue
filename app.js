@@ -9,7 +9,7 @@ const DEFAULT_WAVE = 'https://pay.wave.com/m/M_sn__kJhIPEZIYZA/c/sn/';
 const SB = { url: 'https://vitqwefhyywvhdcspeuo.supabase.co',
   key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpdHF3ZWZoeXl3dmhkY3NwZXVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1ODUyMjMsImV4cCI6MjEwNzE2MTIyM30.fcMZ18-933YuvBSMi0MYTw6tuDm5_M-8yMdzJh5pfvk' };
 let BASE = [], EDITS = {}, DELS = [], NEWS = [], CART = {}, WA = DEFAULT_WA, WAVE = DEFAULT_WAVE;
-let vue = { q: '', cat: '', stock: '', haut: false, liste: [], offset: 0 };
+let vue = { q: '', cat: '', stock: '', marque: '', haut: false, liste: [], offset: 0 };
 let admin = false, client = false, refCourante = null, deferredPrompt = null;
 let selMode = false; const SEL = new Set();
 let PIN = charge('ess_pin_v1', '2026');
@@ -29,7 +29,85 @@ function produits() {
   return [...map.values()];
 }
 const prixDe = p => (p.promo ? p.promo : p.prix);
-const cle = p => norm([p.nom, p.ref, p.cat, p.marque].filter(Boolean).join(' '));
+const SYN = {
+  'climatiseur': ['clim', 'climatisation', 'air conditionne', 'split', 'froid'],
+  'clim': ['climatiseur', 'climatisation'],
+  'refrigerateur': ['frigo', 'frigidaire', 'froid', 'combine'],
+  'congelateur': ['congelo', 'surgelateur', 'freezer', 'froid'],
+  'ordinateur': ['pc', 'ordi', 'portable', 'laptop', 'notebook', 'desktop', 'tour', 'bureautique'],
+  'laptop': ['pc portable', 'ordinateur portable', 'ordi', 'notebook'],
+  'imprimante': ['printer', 'impression', 'multifonction', 'laser', 'jet encre'],
+  'cartouche': ['encre', 'toner', 'consommable', 'recharge'],
+  'toner': ['cartouche', 'encre', 'laser'], 'encre': ['cartouche', 'toner'],
+  'ecran': ['moniteur', 'display', 'dalle'], 'moniteur': ['ecran', 'display'],
+  'televiseur': ['tv', 'tele', 'smart tv', 'led', 'uhd'], 'tv': ['televiseur', 'tele'],
+  'souris': ['mouse', 'sans fil', 'optique'], 'clavier': ['keyboard', 'azerty', 'sans fil'],
+  'onduleur': ['ups', 'inverter', 'secours'], 'ups': ['onduleur'],
+  'regulateur': ['avr', 'stabilisateur', 'tension'], 'rallonge': ['multiprise', 'prolongateur', 'prise'],
+  'disque': ['dd', 'hdd', 'ssd', 'stockage'], 'ssd': ['disque dur', 'nvme', 'stockage'],
+  'disque dur': ['ssd', 'hdd', 'stockage'], 'memoire': ['ram', 'barrette', 'ddr'],
+  'ram': ['memoire', 'barrette', 'ddr'], 'processeur': ['cpu', 'core', 'intel', 'ryzen'],
+  'routeur': ['router', 'wifi', 'box', 'modem'], 'switch': ['commutateur', 'reseau', 'port'],
+  'camera': ['surveillance', 'videosurveillance', 'cctv', 'cam', 'ip'],
+  'videosurveillance': ['camera', 'surveillance', 'securite', 'cctv'],
+  'cuisiniere': ['gaziniere', 'four', 'cuisson', 'gaz'], 'four': ['cuisiniere', 'cuisson', 'encastrable'],
+  'lave': ['machine a laver', 'lave linge', 'lavage'], 'machine': ['lave linge', 'electromenager'],
+  'tableau': ['tableau blanc', 'paperboard', 'affichage', 'reunion'],
+  'casque': ['ecouteurs', 'headset', 'audio', 'micro'],
+  'enceinte': ['speaker', 'haut parleur', 'bluetooth', 'audio'],
+  'telephone': ['smartphone', 'portable', 'mobile', 'tel', 'android'],
+  'tablette': ['ipad', 'tablet', 'tactile'], 'chargeur': ['adaptateur', 'alimentation', 'usb'],
+  'batterie': ['accumulateur', 'charge'], 'ventilateur': ['ventilo', 'brasseur', 'air'],
+  'aspirateur': ['aspiro', 'nettoyage'], 'micro onde': ['microonde', 'micro onde', 'four'],
+  'projecteur': ['videoprojecteur', 'projection'], 'cle': ['cle usb', 'flash', 'pendrive'],
+  'cable': ['cord', 'cablage'], 'sacoche': ['sac', 'housse', 'etui'], 'support': ['pied', 'fixation'],
+  'serveur': ['server', 'nas'], 'gaming': ['gamer', 'jeu', 'victus', 'ryzen']
+};
+const CATKW = {
+  'Ordinateurs': ['pc', 'ordi', 'ordinateur', 'portable', 'laptop', 'bureautique', 'informatique'],
+  'Composants & Stockage': ['composant', 'stockage', 'piece', 'upgrade'],
+  'Impression & Consommables': ['impression', 'consommable', 'imprimante', 'encre', 'toner', 'cartouche'],
+  'Réseaux & Wi-Fi': ['reseau', 'wifi', 'ethernet', 'lan', 'internet'],
+  'Énergie (Onduleurs, Régulateurs, Rallonges)': ['energie', 'onduleur', 'regulateur', 'rallonge', 'alimentation'],
+  'Sécurité & Vidéosurveillance': ['securite', 'surveillance', 'videosurveillance', 'cctv'],
+  'Climatisation & Ventilation': ['clim', 'climatisation', 'ventilation'],
+  'Froid (Réfrigérateurs & Congélateurs)': ['froid', 'refrigeration'],
+  'TV, Audio & Vidéo': ['tele', 'tv', 'video', 'audio', 'televiseur'],
+  'Téléphonie & Tablettes': ['telephonie', 'telephone', 'mobile', 'tablette'],
+  'Petit électroménager': ['electromenager', 'menager'],
+  'Cuisson & Encastrable': ['cuisson', 'encastrable'],
+  'Lavage & Entretien': ['lavage', 'entretien'],
+  'Écrans & Moniteurs': ['ecran', 'moniteur', 'affichage'],
+  'Accessoires informatiques': ['accessoire', 'informatique', 'peripherique'],
+  'Mobilier & Maison': ['meuble', 'mobilier', 'maison'],
+  'Caisse, Bureau & Point de vente': ['caisse', 'point de vente', 'commerce'],
+  'Tableaux blancs & Affichage': ['tableau', 'tableau blanc', 'affichage'],
+  'Logiciels & Licences': ['logiciel', 'licence'],
+  'Consoles & Jeux': ['console', 'jeu', 'jeux']
+};
+const MQKW = {
+  'HP': ['hewlett', 'packard', 'pavilion', 'victus', 'elitebook', 'probook'],
+  'Lenovo': ['thinkpad', 'ideapad', 'legion', 'thinkcentre'],
+  'Apple': ['macbook', 'imac', 'iphone', 'ipad', 'mac'],
+  'Samsung': ['galaxy', 'samsun'], 'Hikvision': ['hikvison'], 'Hisense': ['hisence'],
+  'TP-Link': ['tplink', 'tp link', 'archer', 'deco'], 'Ubiquiti': ['ubnt', 'unifi'],
+  'Dell': ['inspiron', 'latitude', 'optiplex', 'vostro'], 'Canon': ['pixma'],
+  'Epson': ['ecotank', 'workforce'], 'Xiaomi': ['redmi', 'poco'],
+  'Microsoft': ['surface', 'windows'], 'SanDisk': ['sandisk', 'western digital']
+};
+function cle(p) {
+  const n = norm(p.nom), c = norm(p.cat);
+  const mots = new Set([n, c, norm(p.marque), norm(p.ref)]);
+  (CATKW[p.cat] || []).forEach(k => mots.add(norm(k)));
+  (MQKW[p.marque] || []).forEach(k => mots.add(norm(k)));
+  if (p.spec) Object.values(p.spec).forEach(v => mots.add(norm(v)));
+  for (const t in SYN) {
+    const tn = norm(t);
+    if (n.includes(tn) || c.includes(tn)) SYN[t].forEach(s => mots.add(norm(s)));
+  }
+  if (p.desc) { const d = norm(p.desc); if (d.includes('climatiseur')) mots.add('clim'); }
+  return [...mots].filter(Boolean).join(' ');
+}
 const coupe = (s, n) => { const t = (s || '').trim(); return t.length <= n ? t : t.slice(0, n).replace(/\s+\S*$/, '') + '…'; };
 let IDX = new Map();
 function indexe() {
@@ -44,10 +122,15 @@ function filtres() {
   let l = produits();
   if (vue.cat) l = l.filter(p => p.cat.split(' | ')[0] === vue.cat);
   if (vue.stock) l = l.filter(p => p.stock === vue.stock);
+  if (vue.marque) l = l.filter(p => p.marque === vue.marque);
   if (vue.haut) { const vus = new Set();
     l = l.filter(p => { if (!p.grp) return true; if (p.prix !== p.maxg) return false;
       if (vus.has(p.grp)) return false; vus.add(p.grp); return true; }); }
-  if (vue.q) { const q = norm(vue.q); l = l.filter(p => (IDX.get(p.ref) || cle(p)).includes(q)); }
+  if (vue.q) {
+    const toks = norm(vue.q).split(' ').filter(t => t.length > 1);
+    l = l.filter(p => { const s = IDX.get(p.ref) || cle(p);
+      return toks.every(t => s.includes(t) || s.includes(t.replace(/s$/, ''))); });
+  }
   l.sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
   return l;
 }
@@ -100,19 +183,25 @@ function appliquePrix(fn, label) {
   $('#prixEtat').textContent = `✔ ${label} appliquée à ${n} article${n > 1 ? 's' : ''}`;
 }
 function renduChips() {
-  const P = produits(); const cc = {};
+  const P = produits(); const cc = {}, mc = {};
   for (const p of P) { const c = p.cat.split(' | ')[0]; cc[c] = (cc[c] || 0) + 1; }
+  for (const p of P) if (p.marque && (!vue.cat || p.cat.split(' | ')[0] === vue.cat)) mc[p.marque] = (mc[p.marque] || 0) + 1;
   const cats = Object.entries(cc).sort((a, b) => b[1] - a[1]);
   $('#chips').innerHTML = `<button class="chip ${vue.cat ? '' : 'on'}" data-cat="">Tout (${P.length})</button>` +
     cats.map(([c, n]) => `<button class="chip ${vue.cat === c ? 'on' : ''}" data-cat="${esc(c)}">${esc(c)} (${n})</button>`).join('') +
-    `<button class="chip f ${vue.haut ? 'on' : ''}" data-haut="1" title="Une seule fiche par produit : celle au prix le plus élevé">⚖️ Prix le + élevé</button>`;
+    (client ? '' : `<button class="chip f ${vue.haut ? 'on' : ''}" data-haut="1" title="Une seule fiche par produit : celle au prix le plus élevé">⚖️ Prix le + élevé</button>`);
+  const ms = Object.entries(mc).sort((a, b) => b[1] - a[1]).slice(0, 20);
+  if (vue.marque && !ms.some(m => m[0] === vue.marque)) ms.push([vue.marque, mc[vue.marque] || 0]);
+  $('#chipsM').innerHTML = `<button class="chip m ${vue.marque ? '' : 'on'}" data-m="">Toutes marques</button>` +
+    ms.map(([m, n]) => `<button class="chip m ${vue.marque === m ? 'on' : ''}" data-m="${esc(m)}">${esc(m)} (${n})</button>`).join('');
 }
 function renduListe(reset) {
   if (reset) { vue.liste = filtres(); vue.offset = 0; $('#grille').innerHTML = ''; }
   $('#grille').insertAdjacentHTML('beforeend', vue.liste.slice(vue.offset, vue.offset + PAS).map(carteHTML).join(''));
   vue.offset = Math.min(vue.offset + PAS, vue.liste.length);
   $('#compteur').textContent = `${vue.liste.length} article${vue.liste.length > 1 ? 's' : ''}` +
-    (vue.q ? ` pour « ${vue.q} »` : '') + (vue.cat ? ` · ${vue.cat}` : '') + (vue.haut ? ' · prix le + élevé' : '');
+    (vue.q ? ` pour « ${vue.q} »` : '') + (vue.cat ? ` · ${vue.cat}` : '') +
+    (vue.marque ? ` · ${vue.marque}` : '') + (vue.haut ? ' · prix le + élevé' : '');
   $('#fin').hidden = vue.offset < vue.liste.length;
 }
 
@@ -429,8 +518,12 @@ async function init() {
   $('#q').addEventListener('input', e => { vue.q = e.target.value.trim(); renduListe(true); });
   $('#stockFiltre').addEventListener('change', e => { vue.stock = e.target.value; renduListe(true); });
   $('#chips').addEventListener('click', e => { const c = e.target.closest('.chip'); if (!c) return;
-    if (c.dataset.haut) vue.haut = !vue.haut; else vue.cat = c.dataset.cat;
+    if (c.dataset.haut) vue.haut = !vue.haut;
+    else { vue.cat = c.dataset.cat; if (vue.marque && !produits().some(p => p.marque === vue.marque &&
+      (!vue.cat || p.cat.split(' | ')[0] === vue.cat))) vue.marque = ''; }
     renduChips(); renduListe(true); });
+  $('#chipsM').addEventListener('click', e => { const c = e.target.closest('.chip'); if (!c) return;
+    vue.marque = c.dataset.m; renduChips(); renduListe(true); });
   window.addEventListener('scroll', () => {
     if ($('#fiche').hidden && $('#panier').hidden && window.innerHeight + window.scrollY > document.body.offsetHeight - 700) renduListe(false);
   });

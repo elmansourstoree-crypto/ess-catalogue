@@ -79,6 +79,8 @@ body.client #btnAdmin{display:none}
 .chips + .chips{padding-top:0}
 .chip.f{background:#eaf0f9; border-color:#c3d2e8; font-size:12.5px; padding:5px 11px}
 .chip.f.on{background:var(--or); color:#241c07; border-color:var(--or)}
+.chip.m{background:#f3f0fb; border-color:#ddd3ef; font-size:12.5px; padding:5px 11px}
+.chip.m.on{background:var(--navy); color:#fff; border-color:var(--navy)}
 .carte .fr{font-size:10.5px; font-weight:700; color:var(--gris); letter-spacing:.2px;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .carte .de{font-size:11px; line-height:1.35; color:var(--gris); display:-webkit-box;
