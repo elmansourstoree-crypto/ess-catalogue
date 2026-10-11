@@ -567,23 +567,34 @@ async function chargeDescs() {
 
 /* ---------- init ---------- */
 async function init() {
+  balise('init-demarre', { sw: (navigator.serviceWorker && navigator.serviceWorker.controller) ? 'actif' : 'aucun',
+    enLigne: navigator.onLine });
   client = new URLSearchParams(location.search).get('mode') === 'client';
   if (client) { document.body.classList.add('client');
     $('#bandClient').hidden = false; $('#piedClient').hidden = false; $('#btnAdmin').style.display = 'none'; }
+  let derniereErreur = '';
   for (const essai of [1, 2, 3]) {
+    const ctl = new AbortController();
+    const tempo = setTimeout(() => ctl.abort(), 12000);
     try {
-      const r = await fetch('data/products.json?e=' + essai, { cache: 'reload' });
+      const r = await fetch('data/products.json?e=' + essai, { cache: 'reload', signal: ctl.signal });
+      clearTimeout(tempo);
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const t = await r.text();
       BASE = JSON.parse(t);
       balise('catalogue-charge', { produits: BASE.length, essai: essai, octets: t.length });
+      derniereErreur = '';
       break;
     } catch (e) {
-      balise('echec-catalogue', { essai: essai, erreur: String(e && e.message ? e.message : e).slice(0, 200) });
+      clearTimeout(tempo);
+      derniereErreur = (e && e.name === 'AbortError')
+        ? 'Le téléchargement reste bloqué plus de 12 secondes'
+        : String(e && e.message ? e.message : e);
+      balise('echec-catalogue', { essai: essai, erreur: derniereErreur.slice(0, 200), enLigne: navigator.onLine });
       if (essai === 3) {
         document.querySelector('#compteur').innerHTML =
           '<p style="padding:16px;text-align:center;color:#c0392b">Catalogue momentanément indisponible.<br>' +
-          'Vérifiez votre connexion puis rechargez la page.</p>' +
+          '<small style="color:#666">' + derniereErreur.replace(/[<>&]/g, '') + '</small></p>' +
           '<p style="text-align:center"><button class="btn" onclick="location.reload()">🔄 Recharger</button></p>';
         return;
       }
