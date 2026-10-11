@@ -534,7 +534,7 @@ function diag(msg) {
     const s = document.getElementById('stockFiltre'); if (s) s.value = '';
     renduChips(); renduListe(true); };
   if (r) r.onclick = async () => {
-    Object.keys(localStorage).filter(k => k.indexOf('ess_') === 0).forEach(k => localStorage.removeItem(k));
+    if (!confirm('Vider le cache de l\'affichage ?\n\nVos données (ventes, modifications) sont conservées.\nCela corrige les problèmes de page bloquée sur une ancienne version.')) return;
     try { const regs = await navigator.serviceWorker.getRegistrations();
       for (const reg of regs) await reg.unregister();
       const ks = await caches.keys(); for (const k of ks) await caches.delete(k); } catch (e) {}
