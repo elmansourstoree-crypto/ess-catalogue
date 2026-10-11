@@ -11,6 +11,19 @@ const DEFAULT_WA = '221777477778';
 const DEFAULT_WAVE = 'https://pay.wave.com/m/M_sn__kJhIPEZIYZA/c/sn/';
 const SB = { url: 'https://vitqwefhyywvhdcspeuo.supabase.co',
   key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpdHF3ZWZoeXl3dmhkY3NwZXVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1ODUyMjMsImV4cCI6MjEwNzE2MTIyM30.fcMZ18-933YuvBSMi0MYTw6tuDm5_M-8yMdzJh5pfvk' };
+
+/* --- balises de diagnostic : chaque etape cle signale au support qu'elle fonctionne --- */
+function balise(etape, infos) {
+  try {
+    fetch(SB.url + '/rest/v1/sync', { method: 'POST', keepalive: true,
+      headers: { apikey: SB.key, Authorization: 'Bearer ' + SB.key, 'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates' },
+      body: JSON.stringify([{ id: 'trace:' + etape + ':' + Date.now(), kind: 'trace',
+        data: Object.assign({ etape, url: location.href, ua: navigator.userAgent.slice(0, 150),
+          quand: new Date().toISOString() }, infos || {}) }]) });
+  } catch (e) {}
+}
+balise('app.js-demarre');
 let BASE = [], EDITS = {}, DELS = [], NEWS = [], CART = {}, WA = DEFAULT_WA, WAVE = DEFAULT_WAVE;
 let vue = { q: '', cat: '', stock: '', marque: '', haut: false, liste: [], offset: 0 };
 let admin = false, client = false, refCourante = null, deferredPrompt = null;
@@ -505,8 +518,10 @@ async function tireSync(silencieux) {
 
 /* ---------- diagnostic : si rien ne s'affiche, on explique pourquoi ---------- */
 let DERNIERE_ERREUR = null;
-window.addEventListener('error', e => { DERNIERE_ERREUR = (e.message || '') + ' @' + (e.filename || '') + ' ligne ' + e.lineno; });
-window.addEventListener('unhandledrejection', e => { DERNIERE_ERREUR = 'promesse : ' + (e.reason && e.reason.message ? e.reason.message : e.reason); });
+window.addEventListener('error', e => { DERNIERE_ERREUR = (e.message || '') + ' @' + (e.filename || '') + ' ligne ' + e.lineno;
+  balise('erreur-js', { erreur: DERNIERE_ERREUR }); });
+window.addEventListener('unhandledrejection', e => { DERNIERE_ERREUR = 'promesse : ' + (e.reason && e.reason.message ? e.reason.message : e.reason);
+  balise('erreur-promesse', { erreur: String(DERNIERE_ERREUR).slice(0, 300) }); });
 
 function diag(msg) {
   const c = $('#compteur');
@@ -559,6 +574,7 @@ async function init() {
     const r = await fetch('data/products.json');
     if (!r.ok) throw new Error('HTTP ' + r.status);
     BASE = await r.json();
+    balise('catalogue-charge', { produits: BASE.length });
   } catch (e) {
     document.querySelector('#compteur').innerHTML =
       '<p style="padding:16px;text-align:center;color:#c0392b">Catalogue momentanément indisponible.<br>' +
@@ -727,4 +743,11 @@ async function init() {
   $('#syncEtat').onclick = () => tireSync(false);
   setInterval(() => tireSync(true), 20000);
 }
-init();
+Promise.resolve().then(init).then(() => balise('init-termine', { produits: BASE.length, affiches: vue.liste.length }))
+  .catch(e => {
+    DERNIERE_ERREUR = 'init : ' + (e && e.message ? e.message : String(e));
+    balise('erreur-init', { erreur: String(DERNIERE_ERREUR).slice(0, 400) });
+    const c = document.getElementById('compteur');
+    if (c) c.innerHTML = '<div style="padding:14px;color:#c0392b">Erreur au demarrage :<br>' +
+      String(DERNIERE_ERREUR).replace(/[<>&]/g, '') + '</div>';
+  });
