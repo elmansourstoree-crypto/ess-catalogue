@@ -521,6 +521,13 @@ function diag(msg) {
       <button class="btn vert" id="diagFiltres">↺ Réinitialiser les filtres</button>
       <button class="btn rouge" id="diagRaz">🗑 Vider le cache de l'appareil</button>
     </div></div>`;
+  try { pousse('diag:' + Date.now(), 'diag', {
+    base: BASE.length, supprimes: DELS.length, modifies: Object.keys(EDITS).length, ajoutes: NEWS.length,
+    apresFiltres: vue.liste.length, filtres: { q: vue.q, cat: vue.cat, marque: vue.marque, stock: vue.stock, haut: vue.haut },
+    erreur: String(DERNIERE_ERREUR || 'aucune').slice(0, 400),
+    url: location.href, navigateur: navigator.userAgent.slice(0, 160),
+    langue: navigator.language, connexion: navigator.onLine ? 'en ligne' : 'hors ligne',
+    memoire: navigator.deviceMemory || '?', quand: new Date().toISOString() }); } catch (e) {}
   const f = document.getElementById('diagFiltres'), r = document.getElementById('diagRaz');
   if (f) f.onclick = () => { vue.q = ''; vue.cat = ''; vue.marque = ''; vue.stock = ''; vue.haut = false;
     const q = document.getElementById('q'); if (q) q.value = '';
