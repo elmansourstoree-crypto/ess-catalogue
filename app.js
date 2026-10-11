@@ -1,5 +1,8 @@
 /* ESS Catalogue v2 — PWA : catalogue + gestion + panier + commande WhatsApp + promos + mode client */
-const $ = s => document.querySelector(s);
+/* $() ne plante jamais : si un element n'existe pas encore (ancienne page en cache),
+   on renvoie un element vide au lieu de bloquer toute l'appli. */
+const VIDE = document.createElement('div');
+const $ = s => document.querySelector(s) || VIDE;
 const fmt = n => n == null ? null : n.toLocaleString('fr-FR').replace(/\u202f/g, ' ') + ' FCFA';
 const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const esc = s => (s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -500,12 +503,31 @@ async function tireSync(silencieux) {
   syncEncours = false;
 }
 
+/* ---------- descriptions (chargees apres l'affichage, pour un demarrage rapide) ---------- */
+async function chargeDescs() {
+  try {
+    const d = await (await fetch('data/desc.json')).json();
+    for (const p of BASE) if (d[p.ref]) p.desc = d[p.ref];
+    indexe(); renduListe(true);
+  } catch (e) { /* hors ligne : les descriptions se chargeront plus tard */ }
+}
+
 /* ---------- init ---------- */
 async function init() {
   client = new URLSearchParams(location.search).get('mode') === 'client';
   if (client) { document.body.classList.add('client');
     $('#bandClient').hidden = false; $('#piedClient').hidden = false; $('#btnAdmin').style.display = 'none'; }
-  BASE = await (await fetch('data/products.json')).json();
+  try {
+    const r = await fetch('data/products.json');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    BASE = await r.json();
+  } catch (e) {
+    document.querySelector('#compteur').innerHTML =
+      '<p style="padding:16px;text-align:center;color:#c0392b">Catalogue momentanément indisponible.<br>' +
+      'Vérifiez votre connexion puis rechargez la page.</p>' +
+      '<p style="text-align:center"><button class="btn" onclick="location.reload()">🔄 Recharger</button></p>';
+    return;
+  }
   EDITS = charge('ess_edits_v1', {}); DELS = charge('ess_del_v1', []); NEWS = charge('ess_new_v1', []);
   CART = charge('ess_cart_v1', {}); WA = charge('ess_wa_v1', DEFAULT_WA); VENTES = charge('ess_ventes_v1', []);
   WAVE = charge('ess_wave_v1', DEFAULT_WAVE);
@@ -514,6 +536,7 @@ async function init() {
   fetch('img/icon-512.png').then(r => r.blob()).then(b => new Promise(res => {
     const rd = new FileReader(); rd.onload = () => res(rd.result); rd.readAsDataURL(b); })).then(d => { LOGO_B64 = d; }).catch(() => {});
   indexe(); majBadge(); renduChips(); renduListe(true);
+  chargeDescs();
 
   $('#q').addEventListener('input', e => { vue.q = e.target.value.trim(); renduListe(true); });
   $('#stockFiltre').addEventListener('change', e => { vue.stock = e.target.value; renduListe(true); });
