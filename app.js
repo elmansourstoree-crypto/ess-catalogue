@@ -503,6 +503,37 @@ async function tireSync(silencieux) {
   syncEncours = false;
 }
 
+/* ---------- diagnostic : si rien ne s'affiche, on explique pourquoi ---------- */
+let DERNIERE_ERREUR = null;
+window.addEventListener('error', e => { DERNIERE_ERREUR = (e.message || '') + ' @' + (e.filename || '') + ' ligne ' + e.lineno; });
+window.addEventListener('unhandledrejection', e => { DERNIERE_ERREUR = 'promesse : ' + (e.reason && e.reason.message ? e.reason.message : e.reason); });
+
+function diag(msg) {
+  const c = $('#compteur');
+  c.innerHTML = `<div class="bloc" style="margin:12px; background:#fff; border-radius:12px; padding:14px">
+    <h3 style="margin-top:0; color:#c0392b">⚠️ ${esc(msg)}</h3>
+    <p>Produits chargés : <b>${BASE.length}</b><br>
+       Marqués supprimés : <b>${DELS.length}</b> · modifiés : ${Object.keys(EDITS).length} · ajoutés : ${NEWS.length}<br>
+       Après filtres : <b>${vue.liste.length}</b><br>
+       Filtres actifs : <code>${esc(JSON.stringify({ q: vue.q, cat: vue.cat, marque: vue.marque, stock: vue.stock, haut: vue.haut }))}</code></p>
+    <p>Dernière erreur : <code style="color:#c0392b">${esc(String(DERNIERE_ERREUR || 'aucune')).slice(0, 300)}</code></p>
+    <div class="rangeeBtns">
+      <button class="btn vert" id="diagFiltres">↺ Réinitialiser les filtres</button>
+      <button class="btn rouge" id="diagRaz">🗑 Vider le cache de l'appareil</button>
+    </div></div>`;
+  const f = document.getElementById('diagFiltres'), r = document.getElementById('diagRaz');
+  if (f) f.onclick = () => { vue.q = ''; vue.cat = ''; vue.marque = ''; vue.stock = ''; vue.haut = false;
+    const q = document.getElementById('q'); if (q) q.value = '';
+    const s = document.getElementById('stockFiltre'); if (s) s.value = '';
+    renduChips(); renduListe(true); };
+  if (r) r.onclick = async () => {
+    Object.keys(localStorage).filter(k => k.indexOf('ess_') === 0).forEach(k => localStorage.removeItem(k));
+    try { const regs = await navigator.serviceWorker.getRegistrations();
+      for (const reg of regs) await reg.unregister();
+      const ks = await caches.keys(); for (const k of ks) await caches.delete(k); } catch (e) {}
+    location.href = location.pathname + '?raz=' + Date.now(); };
+}
+
 /* ---------- descriptions (chargees apres l'affichage, pour un demarrage rapide) ---------- */
 async function chargeDescs() {
   try {
@@ -537,6 +568,9 @@ async function init() {
     const rd = new FileReader(); rd.onload = () => res(rd.result); rd.readAsDataURL(b); })).then(d => { LOGO_B64 = d; }).catch(() => {});
   indexe(); majBadge(); renduChips(); renduListe(true);
   chargeDescs();
+  if (!vue.liste.length || location.search.indexOf('diag=1') >= 0) {
+    diag(vue.liste.length ? 'Diagnostic demandé' : 'Aucun produit affiché');
+  }
 
   $('#q').addEventListener('input', e => { vue.q = e.target.value.trim(); renduListe(true); });
   $('#stockFiltre').addEventListener('change', e => { vue.stock = e.target.value; renduListe(true); });
