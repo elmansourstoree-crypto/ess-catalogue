@@ -570,27 +570,37 @@ async function init() {
   client = new URLSearchParams(location.search).get('mode') === 'client';
   if (client) { document.body.classList.add('client');
     $('#bandClient').hidden = false; $('#piedClient').hidden = false; $('#btnAdmin').style.display = 'none'; }
-  try {
-    const r = await fetch('data/products.json');
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    BASE = await r.json();
-    balise('catalogue-charge', { produits: BASE.length });
-  } catch (e) {
-    document.querySelector('#compteur').innerHTML =
-      '<p style="padding:16px;text-align:center;color:#c0392b">Catalogue momentanément indisponible.<br>' +
-      'Vérifiez votre connexion puis rechargez la page.</p>' +
-      '<p style="text-align:center"><button class="btn" onclick="location.reload()">🔄 Recharger</button></p>';
-    return;
+  for (const essai of [1, 2, 3]) {
+    try {
+      const r = await fetch('data/products.json?e=' + essai, { cache: 'reload' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const t = await r.text();
+      BASE = JSON.parse(t);
+      balise('catalogue-charge', { produits: BASE.length, essai: essai, octets: t.length });
+      break;
+    } catch (e) {
+      balise('echec-catalogue', { essai: essai, erreur: String(e && e.message ? e.message : e).slice(0, 200) });
+      if (essai === 3) {
+        document.querySelector('#compteur').innerHTML =
+          '<p style="padding:16px;text-align:center;color:#c0392b">Catalogue momentanément indisponible.<br>' +
+          'Vérifiez votre connexion puis rechargez la page.</p>' +
+          '<p style="text-align:center"><button class="btn" onclick="location.reload()">🔄 Recharger</button></p>';
+        return;
+      }
+      await new Promise(res => setTimeout(res, 900));
+    }
   }
   EDITS = charge('ess_edits_v1', {}); DELS = charge('ess_del_v1', []); NEWS = charge('ess_new_v1', []);
   CART = charge('ess_cart_v1', {}); WA = charge('ess_wa_v1', DEFAULT_WA); VENTES = charge('ess_ventes_v1', []);
   WAVE = charge('ess_wave_v1', DEFAULT_WAVE);
   await tireSync(true);
+  balise('sync-termine', { editions: Object.keys(EDITS).length, supprimes: DELS.length });
   $('#edWa').value = WA; $('#edWave').value = WAVE;
   fetch('img/icon-512.png').then(r => r.blob()).then(b => new Promise(res => {
     const rd = new FileReader(); rd.onload = () => res(rd.result); rd.readAsDataURL(b); })).then(d => { LOGO_B64 = d; }).catch(() => {});
   indexe(); majBadge(); renduChips(); renduListe(true);
   chargeDescs();
+  balise('rendu-fait', { affiches: vue.liste.length });
   if (!vue.liste.length || location.search.indexOf('diag=1') >= 0) {
     diag(vue.liste.length ? 'Diagnostic demandé' : 'Aucun produit affiché');
   }
