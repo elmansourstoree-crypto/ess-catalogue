@@ -589,6 +589,15 @@ async function init() {
       const t = await r.text();
       BASE = JSON.parse(t);
       balise('catalogue-charge', { produits: BASE.length, essai: essai, octets: t.length });
+      if (!BASE.length && !navigator.onLine) {
+        document.querySelector('#compteur').innerHTML =
+          '<p style="padding:16px;text-align:center;color:#c0392b">Hors connexion.<br>' +
+          'Le catalogue n\u2019est pas encore enregistr\u00e9 sur ce t\u00e9l\u00e9phone.<br>' +
+          'Reconnectez-vous \u00e0 Internet une premi\u00e8re fois, ouvrez le catalogue, ' +
+          'ensuite il fonctionnera sans connexion.</p>' +
+          '<p style="text-align:center"><button class="btn" onclick="location.reload()">\U0001f504 Recharger</button></p>';
+        return;
+      }
       derniereErreur = '';
       break;
     } catch (e) {
@@ -768,6 +777,12 @@ async function init() {
     $('#installBand').hidden = true; };
   $('#btnIgnore').onclick = () => $('#installBand').hidden = true;
   $('#syncEtat').onclick = () => tireSync(false);
+  /* hors connexion : on le signale clairement, le catalogue reste utilisable */
+  const majLigne = () => { const el = $('#syncEtat');
+    if (el && !navigator.onLine) { el.className = 'sync err'; el.textContent = '\uD83D\uDCF4';
+      el.title = 'Hors connexion \u2014 le catalogue reste disponible'; } };
+  window.addEventListener('online', () => { majLigne(); tireSync(true); });
+  window.addEventListener('offline', majLigne); majLigne();
   setInterval(() => tireSync(true), 20000);
 }
 Promise.resolve().then(init).then(() => balise('init-termine', { produits: BASE.length, affiches: vue.liste.length }))

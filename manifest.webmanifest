@@ -3,7 +3,7 @@
   "short_name": "ESS Catalogue",
   "description": "Catalogue produits ESS : recherche, fiches, stock, prix, export CSV. Fonctionne hors connexion.",
   "lang": "fr",
-  "start_url": ".",
+  "start_url": "./index.html",
   "scope": ".",
   "display": "standalone",
   "orientation": "portrait",
